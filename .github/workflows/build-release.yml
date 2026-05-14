@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -46,8 +49,9 @@ jobs:
           Compress-Archive -Path "dist/YT-PDFCleaner.exe" -DestinationPath "YT-PDFCleaner-v${{ github.ref_name }}.zip"
 
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: YT-PDFCleaner ${{ github.ref_name }}
           body: |
