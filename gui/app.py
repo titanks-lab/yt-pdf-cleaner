@@ -18,7 +18,7 @@ from .processor import ProcessingThread, ProcessingStatus, ProgressInfo
 
 APP_NAME = "YT-PDFCleaner"
 APP_TITLE = "YT-PDFCleaner — PDF 水印清除工具"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 DEFAULT_THEME = "superhero"
 
 # Brand colors for YT identity
@@ -435,20 +435,98 @@ class YTPDFCleanerApp(ttk.Window):
         thread.start()
 
     def _on_about(self) -> None:
-        """Show about dialog."""
-        Messagebox.ok(
-            title=f"关于 {APP_NAME}",
-            message=(
-                f"{APP_NAME} v{APP_VERSION}\n\n"
-                "PDF 水印清除工具\n\n"
-                "功能:\n"
-                "• 检测 SGCC 追踪水印\n"
-                "• 移除 PDF 水印内容流\n"
-                "• 转换为纯净 Markdown\n\n"
-                "技术栈: Python · PyMuPDF · ttkbootstrap\n"
-                "© 2026 YT Technologies"
-            ),
+        """Show custom about dialog with author info and wider layout."""
+        win = ttk.Toplevel(self)
+        win.title(f"关于 {APP_NAME}")
+        win.geometry("480x420")
+        win.resizable(False, False)
+        win.transient(self)
+        win.grab_set()
+
+        # Center on parent
+        win.update_idletasks()
+        px = self.winfo_x() + (self.winfo_width() - 480) // 2
+        py = self.winfo_y() + (self.winfo_height() - 420) // 2
+        win.geometry(f"+{px}+{py}")
+
+        main = ttk.Frame(win, padding=(30, 24))
+        main.pack(fill=BOTH, expand=True)
+
+        # App icon (use dedicated about PNG for reliable PhotoImage load)
+        icon_about_path = os.path.join(os.path.dirname(__file__), "icon_about.png")
+        if os.path.isfile(icon_about_path):
+            try:
+                icon_img = ttk.PhotoImage(file=icon_about_path)
+                icon_lbl = ttk.Label(main, image=icon_img)
+                icon_lbl.image = icon_img  # Keep reference!
+                icon_lbl.pack(pady=(0, 8))
+            except Exception:
+                pass
+
+        # Brand title
+        badge_frame = ttk.Frame(main)
+        badge_frame.pack(pady=(0, 4))
+        ttk.Label(
+            badge_frame,
+            text="YT", font=("Helvetica", 22, "bold"),
+            foreground=BRAND_PRIMARY,
+        ).pack(side=LEFT)
+        ttk.Label(
+            badge_frame,
+            text="PDFCleaner", font=("Helvetica", 20),
+        ).pack(side=LEFT, padx=(6, 0))
+
+        # Version
+        ttk.Label(
+            main,
+            text=f"v{APP_VERSION}",
+            font=("Helvetica", 11),
+            foreground="#999999",
+        ).pack(pady=(0, 12))
+
+        # Description
+        ttk.Label(
+            main,
+            text="PDF 水印清除工具（绿色免安装版）",
+            font=("Helvetica", 13, "bold"),
+        ).pack(pady=(0, 8))
+
+        # Separator
+        ttk.Separator(main, orient=HORIZONTAL).pack(fill=X, pady=(4, 12))
+
+        # Info rows
+        info_frame = ttk.Frame(main)
+        info_frame.pack(fill=X, pady=(0, 12))
+
+        info_items = [
+            ("✍ 作者", "xbshen"),
+            ("📋 功能", "检测并移除 SGCC 追踪水印"),
+            ("🔧 技术栈", "Python · PyMuPDF · ttkbootstrap"),
+        ]
+        for label, value in info_items:
+            row = ttk.Frame(info_frame)
+            row.pack(fill=X, pady=3)
+            ttk.Label(row, text=label, font=("Helvetica", 11), width=8, anchor=E).pack(side=LEFT, padx=(0, 12))
+            ttk.Label(row, text=value, font=("Helvetica", 11)).pack(side=LEFT)
+
+        # Footer
+        ttk.Separator(main, orient=HORIZONTAL).pack(fill=X, pady=(4, 12))
+        ttk.Label(
+            main,
+            text="© 2026 YT Technologies",
+            font=("Helvetica", 10),
+            foreground="#888888",
+        ).pack(pady=(0, 12))
+
+        # OK button
+        btn_ok = ttk.Button(
+            main,
+            text="✔ 确定",
+            command=win.destroy,
+            bootstyle="success",
+            width=16,
         )
+        btn_ok.pack()
 
     # ── Output directory helpers ────────────────────────────────────────────
 
@@ -663,10 +741,10 @@ class YTPDFCleanerApp(ttk.Window):
         self._show_completion_dialog(p)
 
     def _show_completion_dialog(self, p: ProgressInfo) -> None:
-        """Show a custom completion summary dialog with doubled width."""
+        """Show a custom completion summary dialog with aligned buttons and icons."""
         win = ttk.Toplevel(self)
         win.title("处理结果")
-        win.geometry("620x380")
+        win.geometry("620x420")
         win.resizable(False, False)
         win.transient(self)
         win.grab_set()
@@ -674,35 +752,48 @@ class YTPDFCleanerApp(ttk.Window):
         # Center on parent
         win.update_idletasks()
         px = self.winfo_x() + (self.winfo_width() - 620) // 2
-        py = self.winfo_y() + (self.winfo_height() - 380) // 2
+        py = self.winfo_y() + (self.winfo_height() - 420) // 2
         win.geometry(f"+{px}+{py}")
 
         # Main frame
         main = ttk.Frame(win, padding=(24, 20))
         main.pack(fill=BOTH, expand=True)
 
-        # Icon and status
-        if p.failed > 0:
-            icon_text = "⚠️"
-        else:
-            icon_text = "✅"
+        # ── Status icon: use YT-branded PNG icons for consistency ──
+        icon_frame = ttk.Frame(main)
+        icon_frame.pack(pady=(0, 4))
 
-        icon_lbl = ttk.Label(
-            main,
-            text=icon_text,
-            font=("Helvetica", 36),
-        )
-        icon_lbl.pack(pady=(0, 8))
+        dialog_icon = "icon_dialog_warn.png" if p.failed > 0 else "icon_dialog_check.png"
+        icon_path = os.path.join(os.path.dirname(__file__), dialog_icon)
+        if os.path.isfile(icon_path):
+            try:
+                icon_img = ttk.PhotoImage(file=icon_path)
+                icon_lbl = ttk.Label(icon_frame, image=icon_img)
+                icon_lbl.image = icon_img  # Keep reference!
+                icon_lbl.pack()
+            except Exception:
+                icon_lbl = ttk.Label(
+                    icon_frame, text="⚠️" if p.failed > 0 else "✅",
+                    font=("Segoe UI Emoji", 40),
+                )
+                icon_lbl.pack()
+        else:
+            icon_lbl = ttk.Label(
+                icon_frame, text="⚠️" if p.failed > 0 else "✅",
+                font=("Segoe UI Emoji", 40),
+            )
+            icon_lbl.pack()
 
         # Title
+        title_text = "处理完成（部分异常）" if p.failed > 0 else "全部处理完成"
         title_lbl = ttk.Label(
             main,
-            text="处理完成！",
+            text=title_text,
             font=("Helvetica", 16, "bold"),
         )
         title_lbl.pack(pady=(0, 16))
 
-        # Stats table
+        # ── Stats table ──
         stats_frame = ttk.Frame(main)
         stats_frame.pack(fill=X, pady=(0, 20))
 
@@ -713,36 +804,39 @@ class YTPDFCleanerApp(ttk.Window):
             ("⏭  跳过", f"{p.skipped}"),
         ]
 
-        for i, (label, value) in enumerate(stats):
+        for label, value in stats:
             row = ttk.Frame(stats_frame)
             row.pack(fill=X, pady=2)
-            ttk.Label(row, text=label, font=("Helvetica", 12), width=12, anchor=E).pack(side=LEFT, padx=(0, 16))
+            ttk.Label(row, text=label, font=("Helvetica", 12), width=10, anchor=E).pack(side=LEFT, padx=(0, 16))
             ttk.Label(row, text=value, font=("Helvetica", 12, "bold"), anchor=W).pack(side=LEFT)
 
-        # Button row
+        # ── Button row (centered, equal width) ──
         btn_row = ttk.Frame(main)
-        btn_row.pack(fill=X, pady=(8, 0))
+        btn_row.pack(fill=X, pady=(12, 0))
 
-        # Open output dir button
+        # Center-align container
+        center = ttk.Frame(btn_row)
+        center.pack()
+
         output_dir = self._output_dir_var.get()
         if output_dir and os.path.isdir(output_dir):
             btn_open = ttk.Button(
-                btn_row,
+                center,
                 text="📂 打开输出目录",
                 command=lambda: (self._open_folder_in_explorer(output_dir), win.destroy()),
-                bootstyle="info-outline",
+                bootstyle="info",
+                width=18,
             )
             btn_open.pack(side=LEFT, padx=(0, 12))
 
-        # Close button
         btn_ok = ttk.Button(
-            btn_row,
+            center,
             text="✔ 确定",
             command=win.destroy,
             bootstyle="success",
-            width=12,
+            width=18,
         )
-        btn_ok.pack(side=RIGHT)
+        btn_ok.pack(side=LEFT)
 
     def _on_processing_log(self, message: str) -> None:
         """Add a log message to the log area."""
