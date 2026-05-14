@@ -46,7 +46,7 @@ jobs:
 
       - name: Package as ZIP
         run: |
-          Compress-Archive -Path "dist/YT-PDFCleaner.exe" -DestinationPath "YT-PDFCleaner-v${{ github.ref_name }}.zip"
+          Compress-Archive -Path "dist/YT-PDFCleaner.exe" -DestinationPath "YT-PDFCleaner-${{ github.ref_name }}.zip"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -73,6 +73,6 @@ jobs:
             2. 解压到任意目录
             3. 双击 `YT-PDFCleaner.exe`
           files: |
-            YT-PDFCleaner-v${{ github.ref_name }}.zip
+            YT-PDFCleaner-${{ github.ref_name }}.zip
           draft: false
           prerelease: false
