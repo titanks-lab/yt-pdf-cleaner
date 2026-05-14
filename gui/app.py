@@ -1,0 +1,694 @@
+"""Main GUI application window for YT-PDFCleaner."""
+
+import os
+import sys
+import threading
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+from ttkbootstrap.dialogs import Messagebox
+
+from core.scanner import scan_directory
+from .file_list import FileListFrame, FileEntry
+from .processor import ProcessingThread, ProcessingStatus, ProgressInfo
+
+
+APP_NAME = "YT-PDFCleaner"
+APP_TITLE = "YT-PDFCleaner — PDF 水印清除工具"
+APP_VERSION = "1.0.0"
+DEFAULT_THEME = "superhero"
+
+# Brand colors for YT identity
+BRAND_PRIMARY = "#E62429"  # YT Red
+BRAND_SECONDARY = "#282828"
+
+
+class YTPDFCleanerApp(ttk.Window):
+    """Main application window for YT-PDFCleaner."""
+
+    def __init__(self) -> None:
+        super().__init__(title=APP_TITLE, themename=DEFAULT_THEME)
+
+        # ── Window setup ────────────────────────────────────────────────
+        self.geometry("800x600")
+        self.minsize(700, 500)
+        self._center_window()
+
+        # ── State ───────────────────────────────────────────────────────
+        self._last_output_dir: Optional[str] = None
+        self._output_mode = ttk.StringVar(value="pdf")
+        self._processor: Optional[ProcessingThread] = None
+        self._log_expanded = False
+
+        # ── Build UI ────────────────────────────────────────────────────
+        self._build_header()
+        self._build_toolbar()
+        self._build_summary_bar()
+        self._build_file_list()
+        self._build_output_settings()
+        self._build_action_buttons()
+        self._build_progress_area()
+        self._build_log_area()
+        self._build_status_bar()
+
+        # ── Bind close event ────────────────────────────────────────────
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    # ═════════════════════════════════════════════════════════════════════
+    # UI Construction
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ── Header ──────────────────────────────────────────────────────────────
+
+    def _build_header(self) -> None:
+        """Build the branded header bar."""
+        header = ttk.Frame(self, bootstyle="dark")
+        header.pack(fill=X, padx=0, pady=0)
+
+        # YT Brand badge
+        brand_frame = ttk.Frame(header, bootstyle="dark")
+        brand_frame.pack(side=LEFT, padx=12, pady=8)
+
+        # YT logo text badge
+        badge = ttk.Label(
+            brand_frame,
+            text="YT",
+            font=("Helvetica", 16, "bold"),
+            foreground=BRAND_PRIMARY,
+            bootstyle="dark",
+        )
+        badge.pack(side=LEFT)
+
+        title_lbl = ttk.Label(
+            brand_frame,
+            text="PDFCleaner",
+            font=("Helvetica", 14),
+            foreground="white",
+            bootstyle="dark",
+        )
+        title_lbl.pack(side=LEFT, padx=(4, 0))
+
+        # Version
+        ver_lbl = ttk.Label(
+            header,
+            text=f"v{APP_VERSION}",
+            font=("Helvetica", 9),
+            foreground="#888888",
+            bootstyle="dark",
+        )
+        ver_lbl.pack(side=LEFT, padx=(6, 0), pady=8)
+
+        # Separator
+        sep = ttk.Separator(self, orient=HORIZONTAL, bootstyle="secondary")
+        sep.pack(fill=X, padx=0, pady=0)
+
+    # ── Toolbar ─────────────────────────────────────────────────────────────
+
+    def _build_toolbar(self) -> None:
+        """Build the toolbar with file selection and about buttons."""
+        toolbar = ttk.Frame(self, padding=(10, 6))
+        toolbar.pack(fill=X)
+
+        # Select Files
+        self._btn_files = ttk.Button(
+            toolbar,
+            text="📄 选择文件(F)",
+            command=self._on_select_files,
+            bootstyle="info-outline",
+        )
+        self._btn_files.pack(side=LEFT, padx=(0, 6))
+
+        # Select Folder
+        self._btn_folder = ttk.Button(
+            toolbar,
+            text="📁 选择文件夹(D)",
+            command=self._on_select_folder,
+            bootstyle="info-outline",
+        )
+        self._btn_folder.pack(side=LEFT, padx=(0, 6))
+
+        # Keyboard shortcuts
+        self.bind("<Alt-f>", lambda e: self._on_select_files())
+        self.bind("<Alt-d>", lambda e: self._on_select_folder())
+
+        # Spacer
+        ttk.Label(toolbar, text="").pack(side=LEFT, fill=X, expand=True)
+
+        # About button
+        self._btn_about = ttk.Button(
+            toolbar,
+            text="ℹ 关于(A)",
+            command=self._on_about,
+            bootstyle="secondary-outline",
+        )
+        self._btn_about.pack(side=RIGHT)
+        self.bind("<Alt-a>", lambda e: self._on_about())
+
+    # ── Summary bar ─────────────────────────────────────────────────────────
+
+    def _build_summary_bar(self) -> None:
+        """Build the summary bar showing file counts."""
+        self._summary_bar = ttk.Frame(self, padding=(10, 2))
+        self._summary_bar.pack(fill=X)
+
+        self._summary_label = ttk.Label(
+            self._summary_bar,
+            text="已选: 0 个文件  |  总大小: 0 MB",
+            font=("Helvetica", 10),
+        )
+        self._summary_label.pack(side=LEFT)
+
+    # ── File list ───────────────────────────────────────────────────────────
+
+    def _build_file_list(self) -> None:
+        """Build the file list Treeview component."""
+        container = ttk.Frame(self, padding=(10, 4))
+        container.pack(fill=BOTH, expand=True)
+
+        self._file_list = FileListFrame(
+            container,
+            on_files_changed=self._on_files_changed,
+            on_file_double_click=self._on_file_double_click,
+        )
+        self._file_list.pack(fill=BOTH, expand=True)
+
+    # ── Output settings ─────────────────────────────────────────────────────
+
+    def _build_output_settings(self) -> None:
+        """Build output format and directory settings panel."""
+        frame = ttk.LabelFrame(self, text="输出设置", padding=(10, 8))
+        frame.pack(fill=X, padx=10, pady=(4, 0))
+
+        # Format selection row
+        fmt_row = ttk.Frame(frame)
+        fmt_row.pack(fill=X, pady=(0, 6))
+
+        ttk.Label(fmt_row, text="输出格式:", font=("Helvetica", 10)).pack(side=LEFT, padx=(0, 10))
+
+        rb_pdf = ttk.Radiobutton(
+            fmt_row,
+            text="PDF（保留原排版）",
+            variable=self._output_mode,
+            value="pdf",
+            bootstyle="info",
+        )
+        rb_pdf.pack(side=LEFT, padx=(0, 15))
+
+        rb_md = ttk.Radiobutton(
+            fmt_row,
+            text="Markdown（纯文本）",
+            variable=self._output_mode,
+            value="markdown",
+            bootstyle="info",
+        )
+        rb_md.pack(side=LEFT)
+
+        # Output directory row
+        dir_row = ttk.Frame(frame)
+        dir_row.pack(fill=X)
+
+        ttk.Label(dir_row, text="输出目录:", font=("Helvetica", 10)).pack(side=LEFT, padx=(0, 10))
+
+        self._output_dir_var = ttk.StringVar(value="")
+        self._output_dir_entry = ttk.Entry(
+            dir_row,
+            textvariable=self._output_dir_var,
+            bootstyle="info",
+        )
+        self._output_dir_entry.pack(side=LEFT, fill=X, expand=True, padx=(0, 6))
+
+        self._btn_browse = ttk.Button(
+            dir_row,
+            text="📁 浏览",
+            command=self._on_browse_output_dir,
+            bootstyle="info-outline",
+            width=8,
+        )
+        self._btn_browse.pack(side=RIGHT)
+
+    # ── Action buttons ──────────────────────────────────────────────────────
+
+    def _build_action_buttons(self) -> None:
+        """Build the main action buttons (Start, Stop, Clear)."""
+        frame = ttk.Frame(self, padding=(10, 6))
+        frame.pack(fill=X)
+
+        self._btn_start = ttk.Button(
+            frame,
+            text="▶ 开始处理",
+            command=self._on_start_processing,
+            bootstyle="success",
+            width=14,
+        )
+        self._btn_start.pack(side=LEFT, padx=(0, 6))
+
+        self._btn_stop = ttk.Button(
+            frame,
+            text="■ 停止",
+            command=self._on_stop_processing,
+            bootstyle="danger-outline",
+            width=10,
+            state=DISABLED,
+        )
+        self._btn_stop.pack(side=LEFT, padx=(0, 6))
+
+        # Spacer
+        ttk.Label(frame, text="").pack(side=LEFT, fill=X, expand=True)
+
+        self._btn_clear = ttk.Button(
+            frame,
+            text="🗑 清空列表",
+            command=self._on_clear_list,
+            bootstyle="secondary-outline",
+            width=10,
+        )
+        self._btn_clear.pack(side=RIGHT)
+
+    # ── Progress area ───────────────────────────────────────────────────────
+
+    def _build_progress_area(self) -> None:
+        """Build the progress bar and status display."""
+        frame = ttk.Frame(self, padding=(10, 2))
+        frame.pack(fill=X)
+
+        # Progress bar
+        self._progress_bar = ttk.Progressbar(
+            frame,
+            mode="determinate",
+            value=0,
+            bootstyle="info-striped",
+            length=600,
+        )
+        self._progress_bar.pack(fill=X, pady=(0, 2))
+
+        # Progress text
+        self._progress_label = ttk.Label(
+            frame,
+            text="就绪 — 请选择 PDF 文件开始处理",
+            font=("Helvetica", 9),
+        )
+        self._progress_label.pack(anchor=W)
+
+        # Result summary
+        self._result_label = ttk.Label(
+            frame,
+            text="结果汇总: 0 成功 / 0 失败 / 0 跳过",
+            font=("Helvetica", 9),
+            foreground="#aaaaaa",
+        )
+        self._result_label.pack(anchor=W)
+
+    # ── Log area ────────────────────────────────────────────────────────────
+
+    def _build_log_area(self) -> None:
+        """Build the expandable log display area."""
+        self._log_container = ttk.Frame(self)
+        self._log_container.pack(fill=X, padx=10, pady=(0, 4))
+
+        # Toggle button
+        self._log_toggle_btn = ttk.Button(
+            self._log_container,
+            text="▶ 展开日志",
+            command=self._toggle_log,
+            bootstyle="secondary-outline",
+            width=14,
+        )
+        self._log_toggle_btn.pack(anchor=W, pady=(2, 0))
+
+        # Log text widget (initially hidden)
+        self._log_frame = ttk.Frame(self, borderwidth=1, relief=SOLID)
+        self._log_text = ttk.Text(
+            self._log_frame,
+            height=8,
+            wrap=WORD,
+            font=("Consolas", 9),
+            state=DISABLED,
+            foreground="#cccccc",
+            background="#1a1a2e",
+        )
+        self._log_scroll = ttk.Scrollbar(
+            self._log_frame,
+            orient=VERTICAL,
+            command=self._log_text.yview,
+        )
+        self._log_text.configure(yscrollcommand=self._log_scroll.set)
+        self._log_text.pack(side=LEFT, fill=BOTH, expand=True)
+        self._log_scroll.pack(side=RIGHT, fill=Y)
+
+    # ── Status bar ──────────────────────────────────────────────────────────
+
+    def _build_status_bar(self) -> None:
+        """Build the bottom status bar."""
+        self._status_bar = ttk.Frame(self, bootstyle="secondary", padding=(10, 3))
+        self._status_bar.pack(fill=X, side=BOTTOM)
+
+        self._status_label = ttk.Label(
+            self._status_bar,
+            text="就绪",
+            font=("Helvetica", 9),
+            bootstyle="secondary",
+        )
+        self._status_label.pack(side=LEFT)
+
+    # ═════════════════════════════════════════════════════════════════════
+    # Event Handlers
+    # ═════════════════════════════════════════════════════════════════════
+
+    # ── File selection ──────────────────────────────────────────────────────
+
+    def _on_select_files(self) -> None:
+        """Open file dialog to select PDF files."""
+        import tkinter.filedialog as fd
+
+        paths = fd.askopenfilenames(
+            title="选择 PDF 文件",
+            filetypes=[("PDF 文件", "*.pdf"), ("所有文件", "*.*")],
+            parent=self,
+        )
+        if paths:
+            # Check for large files (>100MB handled inside add_files)
+            self._file_list.add_files(list(paths))
+
+    def _on_select_folder(self) -> None:
+        """Open directory dialog to scan for PDF files."""
+        import tkinter.filedialog as fd
+
+        directory = fd.askdirectory(
+            title="选择包含 PDF 的文件夹",
+            parent=self,
+        )
+        if not directory:
+            return
+
+        self._update_status("正在扫描文件夹…")
+        self._progress_label.configure(text="正在扫描文件夹中的 PDF 文件…")
+
+        # Run scan in background thread
+        def _scan():
+            try:
+                results = scan_directory(directory)
+                pdf_paths = [r["path"] for r in results if "error" not in r or not r.get("error")]
+                if not pdf_paths:
+                    self.after(0, lambda: self._progress_label.configure(
+                        text="未在所选文件夹中找到 PDF 文件"
+                    ))
+                else:
+                    self.after(0, lambda p=pdf_paths: self._file_list.add_files(p))
+            except Exception as exc:
+                self.after(0, lambda: Messagebox.show_error(
+                    title="扫描失败",
+                    message=f"扫描文件夹时出错:\n{exc}",
+                ))
+            finally:
+                self.after(0, lambda: self._update_status("就绪"))
+
+        thread = threading.Thread(target=_scan, daemon=True)
+        thread.start()
+
+    def _on_about(self) -> None:
+        """Show about dialog."""
+        Messagebox.ok(
+            title=f"关于 {APP_NAME}",
+            message=(
+                f"{APP_NAME} v{APP_VERSION}\n\n"
+                "PDF 水印清除工具\n\n"
+                "功能:\n"
+                "• 检测 SGCC 追踪水印\n"
+                "• 移除 PDF 水印内容流\n"
+                "• 转换为纯净 Markdown\n\n"
+                "技术栈: Python · PyMuPDF · ttkbootstrap\n"
+                "© 2026 YT Technologies"
+            ),
+        )
+
+    # ── File list callbacks ─────────────────────────────────────────────────
+
+    def _on_files_changed(self) -> None:
+        """Update summary bar when file list changes."""
+        entries = self._file_list.get_all_entries()
+        checked = self._file_list.get_checked_entries()
+        total_size = sum(e.size for e in entries)
+
+        if total_size < 1024 * 1024:
+            size_str = f"{total_size / 1024:.1f} KB"
+        else:
+            size_str = f"{total_size / (1024 * 1024):.1f} MB"
+
+        self._summary_label.configure(
+            text=f"已选: {len(checked)}/{len(entries)} 个文件  |  总大小: {size_str}"
+        )
+
+        # Auto-set output directory if not set
+        if not self._output_dir_var.get() and entries:
+            self._auto_set_output_dir(entries[0].path)
+
+    def _on_file_double_click(self, entry: FileEntry) -> None:
+        """Open file with system PDF viewer on double-click."""
+        try:
+            if os.name == "nt":
+                os.startfile(entry.path)
+            elif sys.platform == "darwin":
+                import subprocess
+                subprocess.run(["open", entry.path], check=False)
+            else:
+                import subprocess
+                subprocess.run(["xdg-open", entry.path], check=False)
+        except Exception as exc:
+            Messagebox.show_error(
+                title="打开失败",
+                message=f"无法打开文件:\n{exc}",
+            )
+
+    def _auto_set_output_dir(self, file_path: str) -> None:
+        """Auto-set output directory to YT_output next to the first file."""
+        base_dir = os.path.dirname(file_path)
+        output_dir = os.path.join(base_dir, "YT_output")
+        self._output_dir_var.set(output_dir)
+        self._last_output_dir = output_dir
+
+    # ── Output settings ─────────────────────────────────────────────────────
+
+    def _on_browse_output_dir(self) -> None:
+        """Open directory browser for output path."""
+        import tkinter.filedialog as fd
+
+        initial = self._output_dir_var.get() or os.path.expanduser("~")
+        directory = fd.askdirectory(
+            title="选择输出目录",
+            initialdir=initial,
+            parent=self,
+        )
+        if directory:
+            self._output_dir_var.set(directory)
+            self._last_output_dir = directory
+
+    # ── Processing control ──────────────────────────────────────────────────
+
+    def _on_start_processing(self) -> None:
+        """Start background processing of checked files."""
+        entries = self._file_list.get_checked_entries()
+        if not entries:
+            Messagebox.show_info(
+                title="没有文件",
+                message="请先添加 PDF 文件并勾选要处理的文件。",
+            )
+            return
+
+        # Resolve output directory
+        output_dir = self._output_dir_var.get().strip()
+        if not output_dir:
+            # Default: YT_output in first file's directory
+            if entries:
+                output_dir = os.path.join(os.path.dirname(entries[0].path), "YT_output")
+                self._output_dir_var.set(output_dir)
+
+        # Ensure output dir exists
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+        except Exception as exc:
+            Messagebox.show_error(
+                title="目录错误",
+                message=f"无法创建输出目录:\n{exc}",
+            )
+            return
+
+        # Update UI state
+        self._btn_start.configure(state=DISABLED)
+        self._btn_stop.configure(state=NORMAL)
+        self._btn_clear.configure(state=DISABLED)
+        self._progress_bar.configure(value=0)
+        self._result_label.configure(text="结果汇总: 0 成功 / 0 失败 / 0 跳过")
+
+        mode = self._output_mode.get()
+
+        # Expand log automatically during processing
+        if not self._log_expanded:
+            self._toggle_log()
+
+        # Start processing thread
+        self._processor = ProcessingThread(
+            files=entries,
+            output_dir=output_dir,
+            mode=mode,
+            on_progress=self._on_processing_progress,
+            on_complete=self._on_processing_complete,
+            on_log=self._on_processing_log,
+        )
+        self._processor.start()
+
+    def _on_stop_processing(self) -> None:
+        """Signal the processing thread to stop."""
+        if self._processor and self._processor.is_alive():
+            self._processor.stop()
+            self._btn_stop.configure(state=DISABLED)
+            self._update_status("正在停止…")
+
+    def _on_clear_list(self) -> None:
+        """Clear the entire file list."""
+        if self._file_list.get_entry_count() == 0:
+            return
+        answer = Messagebox.yesno(
+            title="清空列表",
+            message="确定要清空所有文件吗？",
+        )
+        if answer == "Yes":
+            self._file_list.clear_all()
+            self._result_label.configure(text="结果汇总: 0 成功 / 0 失败 / 0 跳过")
+            self._progress_label.configure(text="就绪 — 请选择 PDF 文件开始处理")
+            self._progress_bar.configure(value=0)
+
+    # ── Processing callbacks ────────────────────────────────────────────────
+
+    def _on_processing_progress(self, progress: ProgressInfo) -> None:
+        """Update UI with progress from the processing thread."""
+        # Schedule on main thread
+        self.after(0, lambda p=progress: self._apply_progress(p))
+
+    def _apply_progress(self, p: ProgressInfo) -> None:
+        """Apply progress update on the main thread."""
+        self._progress_bar.configure(value=p.percent)
+        self._progress_label.configure(
+            text=f"{p.current_file} — {p.current_status}"
+        )
+        self._result_label.configure(
+            text=f"结果汇总: {p.success} 成功 / {p.failed} 失败 / {p.skipped} 跳过"
+        )
+        self._update_status(
+            f"{p.completed}/{p.total} — {p.current_file}"
+        )
+
+    def _on_processing_complete(self, progress: ProgressInfo) -> None:
+        """Handle processing completion."""
+        self.after(0, lambda p=progress: self._apply_complete(p))
+
+    def _apply_complete(self, p: ProgressInfo) -> None:
+        """Apply completion state on the main thread."""
+        self._btn_start.configure(state=NORMAL)
+        self._btn_stop.configure(state=DISABLED)
+        self._btn_clear.configure(state=NORMAL)
+        self._progress_bar.configure(value=100.0)
+
+        # Mark all files as processed
+        for entry in self._file_list.get_all_entries():
+            if entry.checked:
+                self._file_list.update_entry_status(entry, "processed")
+
+        if p.status == ProcessingStatus.STOPPED:
+            self._update_status("已停止")
+            self._progress_label.configure(text="⏹ 处理已中断")
+        else:
+            self._update_status("处理完成")
+            self._progress_label.configure(
+                text=f"✅ 处理完成 — {p.success} 成功, {p.failed} 失败, {p.skipped} 跳过"
+            )
+
+        # Show summary dialog
+        summary_lines = [
+            f"处理完成!\n",
+            f"总计: {p.total} 个文件",
+            f"✅ 成功: {p.success}",
+            f"❌ 失败: {p.failed}",
+            f"⏭ 跳过: {p.skipped}",
+        ]
+
+        if p.failed > 0:
+            Messagebox.show_warning(
+                title="处理完成（有错误）",
+                message="\n".join(summary_lines),
+            )
+        else:
+            Messagebox.show_info(
+                title="处理完成",
+                message="\n".join(summary_lines),
+            )
+
+    def _on_processing_log(self, message: str) -> None:
+        """Add a log message to the log area."""
+        self.after(0, lambda m=message: self._append_log(m))
+
+    def _append_log(self, message: str) -> None:
+        """Append a line to the log text widget."""
+        self._log_text.configure(state=NORMAL)
+        self._log_text.insert(END, message + "\n")
+        self._log_text.see(END)
+        self._log_text.configure(state=DISABLED)
+
+    # ── Log area toggle ─────────────────────────────────────────────────────
+
+    def _toggle_log(self) -> None:
+        """Expand or collapse the log area."""
+        if self._log_expanded:
+            self._log_frame.pack_forget()
+            self._log_toggle_btn.configure(text="▶ 展开日志")
+            self._log_expanded = False
+        else:
+            self._log_frame.pack(fill=BOTH, expand=True, padx=0, pady=(2, 0))
+            self._log_toggle_btn.configure(text="▼ 收起日志")
+            self._log_expanded = True
+
+    # ── Window management ───────────────────────────────────────────────────
+
+    def _on_close(self) -> None:
+        """Handle window close — stop any running process first."""
+        if self._processor and self._processor.is_alive():
+            answer = Messagebox.yesno(
+                title="确认退出",
+                message="有处理任务正在运行，确定要退出吗？",
+                alert=True,
+            )
+            if answer == "No":
+                return
+            self._processor.stop()
+
+        self.destroy()
+
+    def _center_window(self) -> None:
+        """Center the window on screen."""
+        self.update_idletasks()
+        w = 800
+        h = 600
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        x = max(0, (sw // 2) - (w // 2))
+        y = max(0, (sh // 2) - (h // 2))
+        self.geometry(f"{w}x{h}+{x}+{y}")
+
+    def _update_status(self, text: str) -> None:
+        """Update the status bar text."""
+        self._status_label.configure(text=text)
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# Entry point (when run directly)
+# ═════════════════════════════════════════════════════════════════════════
+
+def launch_gui() -> None:
+    """Launch the main GUI application."""
+    app = YTPDFCleanerApp()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    launch_gui()
