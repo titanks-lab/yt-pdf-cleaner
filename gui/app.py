@@ -1,6 +1,7 @@
 """Main GUI application window for YT-PDFCleaner."""
 
 import os
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -17,12 +18,18 @@ from .processor import ProcessingThread, ProcessingStatus, ProgressInfo
 
 APP_NAME = "YT-PDFCleaner"
 APP_TITLE = "YT-PDFCleaner — PDF 水印清除工具"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 DEFAULT_THEME = "superhero"
 
 # Brand colors for YT identity
 BRAND_PRIMARY = "#E62429"  # YT Red
 BRAND_SECONDARY = "#282828"
+
+# Window dimensions (doubled from original 800x600)
+WIN_WIDTH = 1600
+WIN_HEIGHT = 1100
+WIN_MIN_WIDTH = 1100
+WIN_MIN_HEIGHT = 700
 
 
 class YTPDFCleanerApp(ttk.Window):
@@ -32,8 +39,9 @@ class YTPDFCleanerApp(ttk.Window):
         super().__init__(title=APP_TITLE, themename=DEFAULT_THEME)
 
         # ── Window setup ────────────────────────────────────────────────
-        self.geometry("800x600")
-        self.minsize(700, 500)
+        self.geometry(f"{WIN_WIDTH}x{WIN_HEIGHT}")
+        self.minsize(WIN_MIN_WIDTH, WIN_MIN_HEIGHT)
+        self._set_app_icon()
         self._center_window()
 
         # ── State ───────────────────────────────────────────────────────
@@ -67,15 +75,14 @@ class YTPDFCleanerApp(ttk.Window):
         header = ttk.Frame(self, bootstyle="dark")
         header.pack(fill=X, padx=0, pady=0)
 
-        # YT Brand badge
         brand_frame = ttk.Frame(header, bootstyle="dark")
-        brand_frame.pack(side=LEFT, padx=12, pady=8)
+        brand_frame.pack(side=LEFT, padx=16, pady=10)
 
-        # YT logo text badge
+        # YT logo badge — larger
         badge = ttk.Label(
             brand_frame,
             text="YT",
-            font=("Helvetica", 16, "bold"),
+            font=("Helvetica", 20, "bold"),
             foreground=BRAND_PRIMARY,
             bootstyle="dark",
         )
@@ -84,21 +91,21 @@ class YTPDFCleanerApp(ttk.Window):
         title_lbl = ttk.Label(
             brand_frame,
             text="PDFCleaner",
-            font=("Helvetica", 14),
+            font=("Helvetica", 18),
             foreground="white",
             bootstyle="dark",
         )
-        title_lbl.pack(side=LEFT, padx=(4, 0))
+        title_lbl.pack(side=LEFT, padx=(6, 0))
 
         # Version
         ver_lbl = ttk.Label(
             header,
             text=f"v{APP_VERSION}",
-            font=("Helvetica", 9),
+            font=("Helvetica", 10),
             foreground="#888888",
             bootstyle="dark",
         )
-        ver_lbl.pack(side=LEFT, padx=(6, 0), pady=8)
+        ver_lbl.pack(side=LEFT, padx=(8, 0), pady=10)
 
         # Separator
         sep = ttk.Separator(self, orient=HORIZONTAL, bootstyle="secondary")
@@ -107,14 +114,14 @@ class YTPDFCleanerApp(ttk.Window):
     # ── Toolbar ─────────────────────────────────────────────────────────────
 
     def _build_toolbar(self) -> None:
-        """Build the toolbar with file selection and about buttons."""
-        toolbar = ttk.Frame(self, padding=(10, 6))
+        """Build the toolbar with file selection, clear and about buttons."""
+        toolbar = ttk.Frame(self, padding=(12, 8))
         toolbar.pack(fill=X)
 
         # Select Files
         self._btn_files = ttk.Button(
             toolbar,
-            text="📄 选择文件(F)",
+            text="📄 选择文件 (F)",
             command=self._on_select_files,
             bootstyle="info-outline",
         )
@@ -123,15 +130,25 @@ class YTPDFCleanerApp(ttk.Window):
         # Select Folder
         self._btn_folder = ttk.Button(
             toolbar,
-            text="📁 选择文件夹(D)",
+            text="📁 选择文件夹 (D)",
             command=self._on_select_folder,
             bootstyle="info-outline",
         )
-        self._btn_folder.pack(side=LEFT, padx=(0, 6))
+        self._btn_folder.pack(side=LEFT, padx=(0, 12))
+
+        # Clear all (toolbar — more visible)
+        self._btn_clear_tool = ttk.Button(
+            toolbar,
+            text="🗑 清空全部 (L)",
+            command=self._on_clear_list,
+            bootstyle="secondary-outline",
+        )
+        self._btn_clear_tool.pack(side=LEFT, padx=(0, 6))
 
         # Keyboard shortcuts
         self.bind("<Alt-f>", lambda e: self._on_select_files())
         self.bind("<Alt-d>", lambda e: self._on_select_folder())
+        self.bind("<Alt-l>", lambda e: self._on_clear_list())
 
         # Spacer
         ttk.Label(toolbar, text="").pack(side=LEFT, fill=X, expand=True)
@@ -139,7 +156,7 @@ class YTPDFCleanerApp(ttk.Window):
         # About button
         self._btn_about = ttk.Button(
             toolbar,
-            text="ℹ 关于(A)",
+            text="ℹ 关于 (A)",
             command=self._on_about,
             bootstyle="secondary-outline",
         )
@@ -150,13 +167,13 @@ class YTPDFCleanerApp(ttk.Window):
 
     def _build_summary_bar(self) -> None:
         """Build the summary bar showing file counts."""
-        self._summary_bar = ttk.Frame(self, padding=(10, 2))
+        self._summary_bar = ttk.Frame(self, padding=(12, 3))
         self._summary_bar.pack(fill=X)
 
         self._summary_label = ttk.Label(
             self._summary_bar,
-            text="已选: 0 个文件  |  总大小: 0 MB",
-            font=("Helvetica", 10),
+            text="已选: 0 / 0 个文件  │  总大小: 0 MB",
+            font=("Helvetica", 11),
         )
         self._summary_label.pack(side=LEFT)
 
@@ -164,7 +181,7 @@ class YTPDFCleanerApp(ttk.Window):
 
     def _build_file_list(self) -> None:
         """Build the file list Treeview component."""
-        container = ttk.Frame(self, padding=(10, 4))
+        container = ttk.Frame(self, padding=(12, 6))
         container.pack(fill=BOTH, expand=True)
 
         self._file_list = FileListFrame(
@@ -179,13 +196,13 @@ class YTPDFCleanerApp(ttk.Window):
     def _build_output_settings(self) -> None:
         """Build output format and directory settings panel."""
         frame = ttk.LabelFrame(self, text="输出设置")
-        frame.pack(fill=X, padx=10, pady=(4, 0))
+        frame.pack(fill=X, padx=12, pady=(4, 0))
 
         # Format selection row
         fmt_row = ttk.Frame(frame)
-        fmt_row.pack(fill=X, pady=(0, 6))
+        fmt_row.pack(fill=X, pady=(0, 8))
 
-        ttk.Label(fmt_row, text="输出格式:", font=("Helvetica", 10)).pack(side=LEFT, padx=(0, 10))
+        ttk.Label(fmt_row, text="输出格式:", font=("Helvetica", 11)).pack(side=LEFT, padx=(0, 12))
 
         rb_pdf = ttk.Radiobutton(
             fmt_row,
@@ -194,7 +211,7 @@ class YTPDFCleanerApp(ttk.Window):
             value="pdf",
             bootstyle="info",
         )
-        rb_pdf.pack(side=LEFT, padx=(0, 15))
+        rb_pdf.pack(side=LEFT, padx=(0, 20))
 
         rb_md = ttk.Radiobutton(
             fmt_row,
@@ -209,7 +226,7 @@ class YTPDFCleanerApp(ttk.Window):
         dir_row = ttk.Frame(frame)
         dir_row.pack(fill=X)
 
-        ttk.Label(dir_row, text="输出目录:", font=("Helvetica", 10)).pack(side=LEFT, padx=(0, 10))
+        ttk.Label(dir_row, text="输出目录:", font=("Helvetica", 11)).pack(side=LEFT, padx=(0, 12))
 
         self._output_dir_var = ttk.StringVar(value="")
         self._output_dir_entry = ttk.Entry(
@@ -219,6 +236,7 @@ class YTPDFCleanerApp(ttk.Window):
         )
         self._output_dir_entry.pack(side=LEFT, fill=X, expand=True, padx=(0, 6))
 
+        # Browse button
         self._btn_browse = ttk.Button(
             dir_row,
             text="📁 浏览",
@@ -226,43 +244,53 @@ class YTPDFCleanerApp(ttk.Window):
             bootstyle="info-outline",
             width=8,
         )
-        self._btn_browse.pack(side=RIGHT)
+        self._btn_browse.pack(side=LEFT, padx=(0, 4))
+
+        # Open directory button (NEW)
+        self._btn_open_dir = ttk.Button(
+            dir_row,
+            text="📂 打开目录",
+            command=self._on_open_output_dir,
+            bootstyle="secondary-outline",
+            width=10,
+        )
+        self._btn_open_dir.pack(side=LEFT)
 
     # ── Action buttons ──────────────────────────────────────────────────────
 
     def _build_action_buttons(self) -> None:
         """Build the main action buttons (Start, Stop, Clear)."""
-        frame = ttk.Frame(self, padding=(10, 6))
+        frame = ttk.Frame(self, padding=(12, 8))
         frame.pack(fill=X)
 
         self._btn_start = ttk.Button(
             frame,
-            text="▶ 开始处理",
+            text="▶  开始处理",
             command=self._on_start_processing,
             bootstyle="success",
-            width=14,
+            width=16,
         )
-        self._btn_start.pack(side=LEFT, padx=(0, 6))
+        self._btn_start.pack(side=LEFT, padx=(0, 8))
 
         self._btn_stop = ttk.Button(
             frame,
-            text="■ 停止",
+            text="■  停止",
             command=self._on_stop_processing,
             bootstyle="danger-outline",
-            width=10,
+            width=12,
             state=DISABLED,
         )
-        self._btn_stop.pack(side=LEFT, padx=(0, 6))
+        self._btn_stop.pack(side=LEFT, padx=(0, 8))
 
         # Spacer
         ttk.Label(frame, text="").pack(side=LEFT, fill=X, expand=True)
 
         self._btn_clear = ttk.Button(
             frame,
-            text="🗑 清空列表",
+            text="🗑  清空列表",
             command=self._on_clear_list,
             bootstyle="secondary-outline",
-            width=10,
+            width=12,
         )
         self._btn_clear.pack(side=RIGHT)
 
@@ -270,24 +298,24 @@ class YTPDFCleanerApp(ttk.Window):
 
     def _build_progress_area(self) -> None:
         """Build the progress bar and status display."""
-        frame = ttk.Frame(self, padding=(10, 2))
+        frame = ttk.Frame(self, padding=(12, 4))
         frame.pack(fill=X)
 
-        # Progress bar
+        # Progress bar — taller, more visible
         self._progress_bar = ttk.Progressbar(
             frame,
             mode="determinate",
             value=0,
             bootstyle="info-striped",
-            length=600,
+            length=800,
         )
-        self._progress_bar.pack(fill=X, pady=(0, 2))
+        self._progress_bar.pack(fill=X, pady=(0, 4))
 
         # Progress text
         self._progress_label = ttk.Label(
             frame,
             text="就绪 — 请选择 PDF 文件开始处理",
-            font=("Helvetica", 9),
+            font=("Helvetica", 10),
         )
         self._progress_label.pack(anchor=W)
 
@@ -295,7 +323,7 @@ class YTPDFCleanerApp(ttk.Window):
         self._result_label = ttk.Label(
             frame,
             text="结果汇总: 0 成功 / 0 失败 / 0 跳过",
-            font=("Helvetica", 9),
+            font=("Helvetica", 10),
             foreground="#aaaaaa",
         )
         self._result_label.pack(anchor=W)
@@ -305,7 +333,7 @@ class YTPDFCleanerApp(ttk.Window):
     def _build_log_area(self) -> None:
         """Build the expandable log display area."""
         self._log_container = ttk.Frame(self)
-        self._log_container.pack(fill=X, padx=10, pady=(0, 4))
+        self._log_container.pack(fill=X, padx=12, pady=(0, 4))
 
         # Toggle button
         self._log_toggle_btn = ttk.Button(
@@ -321,9 +349,9 @@ class YTPDFCleanerApp(ttk.Window):
         self._log_frame = ttk.Frame(self, borderwidth=1, relief=SOLID)
         self._log_text = ttk.Text(
             self._log_frame,
-            height=8,
+            height=10,
             wrap=WORD,
-            font=("Consolas", 9),
+            font=("Consolas", 10),
             state=DISABLED,
             foreground="#cccccc",
             background="#1a1a2e",
@@ -341,13 +369,13 @@ class YTPDFCleanerApp(ttk.Window):
 
     def _build_status_bar(self) -> None:
         """Build the bottom status bar."""
-        self._status_bar = ttk.Frame(self, bootstyle="secondary", padding=(10, 3))
+        self._status_bar = ttk.Frame(self, bootstyle="secondary", padding=(12, 4))
         self._status_bar.pack(fill=X, side=BOTTOM)
 
         self._status_label = ttk.Label(
             self._status_bar,
             text="就绪",
-            font=("Helvetica", 9),
+            font=("Helvetica", 10),
             bootstyle="secondary",
         )
         self._status_label.pack(side=LEFT)
@@ -368,7 +396,6 @@ class YTPDFCleanerApp(ttk.Window):
             parent=self,
         )
         if paths:
-            # Check for large files (>100MB handled inside add_files)
             self._file_list.add_files(list(paths))
 
     def _on_select_folder(self) -> None:
@@ -423,6 +450,35 @@ class YTPDFCleanerApp(ttk.Window):
             ),
         )
 
+    # ── Output directory helpers ────────────────────────────────────────────
+
+    def _on_open_output_dir(self) -> None:
+        """Open the output directory in the system file manager."""
+        directory = self._output_dir_var.get()
+        if not directory or not os.path.isdir(directory):
+            Messagebox.show_info(
+                title="目录不存在",
+                message="请先设置一个有效的输出目录。",
+            )
+            return
+        self._open_folder_in_explorer(directory)
+
+    @staticmethod
+    def _open_folder_in_explorer(folder: str) -> None:
+        """Open a folder in the OS file manager."""
+        try:
+            if os.name == "nt":
+                subprocess.run(["explorer", folder], check=False)
+            elif sys.platform == "darwin":
+                subprocess.run(["open", folder], check=False)
+            else:
+                subprocess.run(["xdg-open", folder], check=False)
+        except Exception as exc:
+            Messagebox.show_error(
+                title="打开失败",
+                message=f"无法打开文件夹:\n{exc}",
+            )
+
     # ── File list callbacks ─────────────────────────────────────────────────
 
     def _on_files_changed(self) -> None:
@@ -437,7 +493,7 @@ class YTPDFCleanerApp(ttk.Window):
             size_str = f"{total_size / (1024 * 1024):.1f} MB"
 
         self._summary_label.configure(
-            text=f"已选: {len(checked)}/{len(entries)} 个文件  |  总大小: {size_str}"
+            text=f"已选: {len(checked)} / {len(entries)} 个文件  │  总大小: {size_str}"
         )
 
         # Auto-set output directory if not set
@@ -450,10 +506,8 @@ class YTPDFCleanerApp(ttk.Window):
             if os.name == "nt":
                 os.startfile(entry.path)
             elif sys.platform == "darwin":
-                import subprocess
                 subprocess.run(["open", entry.path], check=False)
             else:
-                import subprocess
                 subprocess.run(["xdg-open", entry.path], check=False)
         except Exception as exc:
             Messagebox.show_error(
@@ -518,6 +572,7 @@ class YTPDFCleanerApp(ttk.Window):
         self._btn_start.configure(state=DISABLED)
         self._btn_stop.configure(state=NORMAL)
         self._btn_clear.configure(state=DISABLED)
+        self._btn_clear_tool.configure(state=DISABLED)
         self._progress_bar.configure(value=0)
         self._result_label.configure(text="结果汇总: 0 成功 / 0 失败 / 0 跳过")
 
@@ -563,7 +618,6 @@ class YTPDFCleanerApp(ttk.Window):
 
     def _on_processing_progress(self, progress: ProgressInfo) -> None:
         """Update UI with progress from the processing thread."""
-        # Schedule on main thread
         self.after(0, lambda p=progress: self._apply_progress(p))
 
     def _apply_progress(self, p: ProgressInfo) -> None:
@@ -588,6 +642,7 @@ class YTPDFCleanerApp(ttk.Window):
         self._btn_start.configure(state=NORMAL)
         self._btn_stop.configure(state=DISABLED)
         self._btn_clear.configure(state=NORMAL)
+        self._btn_clear_tool.configure(state=NORMAL)
         self._progress_bar.configure(value=100.0)
 
         # Mark all files as processed
@@ -604,25 +659,90 @@ class YTPDFCleanerApp(ttk.Window):
                 text=f"✅ 处理完成 — {p.success} 成功, {p.failed} 失败, {p.skipped} 跳过"
             )
 
-        # Show summary dialog
-        summary_lines = [
-            f"处理完成!\n",
-            f"总计: {p.total} 个文件",
-            f"✅ 成功: {p.success}",
-            f"❌ 失败: {p.failed}",
-            f"⏭ 跳过: {p.skipped}",
+        # Show custom summary dialog (doubled width)
+        self._show_completion_dialog(p)
+
+    def _show_completion_dialog(self, p: ProgressInfo) -> None:
+        """Show a custom completion summary dialog with doubled width."""
+        win = ttk.Toplevel(self)
+        win.title("处理结果")
+        win.geometry("620x380")
+        win.resizable(False, False)
+        win.transient(self)
+        win.grab_set()
+
+        # Center on parent
+        win.update_idletasks()
+        px = self.winfo_x() + (self.winfo_width() - 620) // 2
+        py = self.winfo_y() + (self.winfo_height() - 380) // 2
+        win.geometry(f"+{px}+{py}")
+
+        # Main frame
+        main = ttk.Frame(win, padding=(24, 20))
+        main.pack(fill=BOTH, expand=True)
+
+        # Icon and status
+        if p.failed > 0:
+            icon_text = "⚠️"
+        else:
+            icon_text = "✅"
+
+        icon_lbl = ttk.Label(
+            main,
+            text=icon_text,
+            font=("Helvetica", 36),
+        )
+        icon_lbl.pack(pady=(0, 8))
+
+        # Title
+        title_lbl = ttk.Label(
+            main,
+            text="处理完成！",
+            font=("Helvetica", 16, "bold"),
+        )
+        title_lbl.pack(pady=(0, 16))
+
+        # Stats table
+        stats_frame = ttk.Frame(main)
+        stats_frame.pack(fill=X, pady=(0, 20))
+
+        stats = [
+            ("📄 总计", f"{p.total} 个文件"),
+            ("✅ 成功", f"{p.success}"),
+            ("❌ 失败", f"{p.failed}"),
+            ("⏭  跳过", f"{p.skipped}"),
         ]
 
-        if p.failed > 0:
-            Messagebox.show_warning(
-                title="处理完成（有错误）",
-                message="\n".join(summary_lines),
+        for i, (label, value) in enumerate(stats):
+            row = ttk.Frame(stats_frame)
+            row.pack(fill=X, pady=2)
+            ttk.Label(row, text=label, font=("Helvetica", 12), width=12, anchor=E).pack(side=LEFT, padx=(0, 16))
+            ttk.Label(row, text=value, font=("Helvetica", 12, "bold"), anchor=W).pack(side=LEFT)
+
+        # Button row
+        btn_row = ttk.Frame(main)
+        btn_row.pack(fill=X, pady=(8, 0))
+
+        # Open output dir button
+        output_dir = self._output_dir_var.get()
+        if output_dir and os.path.isdir(output_dir):
+            btn_open = ttk.Button(
+                btn_row,
+                text="📂 打开输出目录",
+                command=lambda: (self._open_folder_in_explorer(output_dir), win.destroy()),
+                bootstyle="info-outline",
             )
-        else:
-            Messagebox.show_info(
-                title="处理完成",
-                message="\n".join(summary_lines),
-            )
+            btn_open.pack(side=LEFT, padx=(0, 12))
+
+        # Close button
+        btn_ok = ttk.Button(
+            btn_row,
+            text="✔ 确定",
+            command=win.destroy,
+            bootstyle="success",
+            width=12,
+        )
+        btn_ok.pack(side=RIGHT)
 
     def _on_processing_log(self, message: str) -> None:
         """Add a log message to the log area."""
@@ -667,13 +787,38 @@ class YTPDFCleanerApp(ttk.Window):
     def _center_window(self) -> None:
         """Center the window on screen."""
         self.update_idletasks()
-        w = 800
-        h = 600
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
-        x = max(0, (sw // 2) - (w // 2))
-        y = max(0, (sh // 2) - (h // 2))
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        x = max(0, (sw // 2) - (WIN_WIDTH // 2))
+        y = max(0, (sh // 2) - (WIN_HEIGHT // 2))
+        self.geometry(f"{WIN_WIDTH}x{WIN_HEIGHT}+{x}+{y}")
+
+    @staticmethod
+    def _resolve_icon_path() -> Optional[str]:
+        """Resolve icon path, handling PyInstaller --onefile bundle."""
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            # PyInstaller bundle: icon lives inside the extracted data dir
+            base = os.path.join(sys._MEIPASS, "gui")
+        else:
+            base = os.path.dirname(__file__)  # gui/ directory
+        ico = os.path.join(base, "icon.ico")
+        png = os.path.join(base, "icon.png")
+        return ico if os.path.isfile(ico) else (png if os.path.isfile(png) else None)
+
+    def _set_app_icon(self) -> None:
+        """Set the window/taskbar icon."""
+        icon = self._resolve_icon_path()
+        if not icon:
+            return
+        try:
+            if icon.endswith(".ico"):
+                self.iconbitmap(icon)
+            else:
+                # PNG via PhotoImage
+                photo = ttk.PhotoImage(file=icon)
+                self.tk.call('wm', 'iconphoto', self._w, photo)
+        except Exception:
+            pass  # Non-critical — ignore icon load failures
 
     def _update_status(self, text: str) -> None:
         """Update the status bar text."""

@@ -29,7 +29,7 @@ jobs:
           pyinstaller --name "YT-PDFCleaner" `
             --windowed `
             --onefile `
-            --icon NONE `
+            --icon "gui/icon.ico" `
             --add-data "core;core" `
             --add-data "gui;gui" `
             --add-data "README.md;." `

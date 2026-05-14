@@ -23,7 +23,7 @@
 从 [Releases 页面](https://github.com/titanks-lab/yt-pdf-cleaner/releases) 下载最新版：
 
 ```
-YT-PDFCleaner-v1.0.0.zip
+YT-PDFCleaner-v1.1.0.zip
 ```
 
 **使用方式：**

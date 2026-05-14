@@ -370,6 +370,10 @@ class FileListFrame(ttk.Frame):
             label="🗑 从列表移除",
             command=lambda e=entry: self.remove_file(e),
         )
+        menu.add_command(
+            label="🗑 清空全部",
+            command=self.clear_all,
+        )
 
         menu.post(event.x_root, event.y_root)
 
