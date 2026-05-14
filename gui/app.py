@@ -178,7 +178,7 @@ class YTPDFCleanerApp(ttk.Window):
 
     def _build_output_settings(self) -> None:
         """Build output format and directory settings panel."""
-        frame = ttk.LabelFrame(self, text="输出设置", padding=(10, 8))
+        frame = ttk.LabelFrame(self, text="输出设置")
         frame.pack(fill=X, padx=10, pady=(4, 0))
 
         # Format selection row
