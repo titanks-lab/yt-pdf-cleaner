@@ -130,7 +130,6 @@ class YTPDFCleanerApp(ttk.Window):
             bootstyle="light",
         )
         self._top_status.pack(side=RIGHT)
-        self._top_status.pack(side=RIGHT)
 
         # Separator line
         sep = ttk.Separator(self, orient=HORIZONTAL)
