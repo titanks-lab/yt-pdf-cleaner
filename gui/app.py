@@ -1,6 +1,6 @@
 """Main GUI application window for YT-PDFCleaner — Pro Edition.
 
-Completely redesigned layout: sidebar + tab navigation + light theme.
+Redesigned layout: light theme, clean single-panel interface.
 """
 
 import os
@@ -42,13 +42,11 @@ FONT_BODY = ("Segoe UI", 11)
 FONT_SMALL = ("Segoe UI", 10)
 FONT_MONO = ("Consolas", 10)
 
-# ── Sidebar constants ────────────────────────────────────────────────────────
-SIDEBAR_W = 200
-SIDEBAR_COLOR = "#f8f9fa"
+# ── Main panel expands to fill window ──────────────────────────────
 
 
 class YTPDFCleanerApp(ttk.Window):
-    """Main application window — Pro Edition with sidebar layout."""
+    """Main application window — Pro Edition clean single-panel layout."""
 
     def __init__(self) -> None:
         super().__init__(title=APP_TITLE, themename=DEFAULT_THEME)
@@ -71,23 +69,19 @@ class YTPDFCleanerApp(ttk.Window):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ═════════════════════════════════════════════════════════════════════
-    # Layout — Sidebar + Main
+    # Layout
     # ═════════════════════════════════════════════════════════════════════
 
     def _build_layout(self) -> None:
-        """Build the main horizontal layout: sidebar | content."""
-        # ── Top bar (full width) ────────────────────────────────────────
+        """Build the main layout: top bar | content | bottom bar."""
+        # ── Top bar + separator (full width) ───────────────────────────
         self._build_topbar()
 
-        # ── Body: sidebar + main ────────────────────────────────────────
-        body = ttk.Frame(self)
-        body.pack(fill=BOTH, expand=True)
-
-        self._build_sidebar(body)
-        self._build_main_panel(body)
-
-        # ── Bottom bar (full width) ─────────────────────────────────────
+        # ── Bottom bar (full width, packed early so it claims bottom edge)
         self._build_bottombar()
+
+        # ── Main content (fills remaining space) ───────────────────────
+        self._build_main_panel(self)
 
     # ── Top bar ─────────────────────────────────────────────────────────────
 
@@ -123,6 +117,14 @@ class YTPDFCleanerApp(ttk.Window):
         # Spacer
         ttk.Label(bar, text="", bootstyle="light").pack(side=LEFT, fill=X, expand=True)
 
+        # Right: About button
+        self._btn_about = ttk.Button(
+            bar, text="ℹ 关于",
+            command=self._on_about,
+            bootstyle="link-light",
+        )
+        self._btn_about.pack(side=RIGHT, padx=(0, 12))
+
         # Right: status indicator
         self._top_status = ttk.Label(
             bar, text="● 就绪",
@@ -137,22 +139,7 @@ class YTPDFCleanerApp(ttk.Window):
 
     # ── Sidebar ─────────────────────────────────────────────────────────────
 
-    def _build_sidebar(self, parent: ttk.Frame) -> None:
-        """Build the navigation sidebar."""
-        sidebar = ttk.Frame(parent, width=SIDEBAR_W, bootstyle="light")
-        sidebar.pack(side=LEFT, fill=Y, padx=(0, 1))
-        sidebar.pack_propagate(False)
-
-        # Spacer — push about button to bottom
-        ttk.Label(sidebar, text="", bootstyle="light").pack(fill=Y, expand=True)
-
-        # About button at bottom
-        self._btn_about = ttk.Button(
-            sidebar, text="ℹ  关于",
-            command=self._on_about,
-            bootstyle="light",
-        )
-        self._btn_about.pack(fill=X, padx=8, pady=(0, 12))
+    # (Sidebar removed — not needed in this version)
 
     # ── Main panel ──────────────────────────────────────────────────────────
 
@@ -337,7 +324,7 @@ class YTPDFCleanerApp(ttk.Window):
         self._log_text.configure(yscrollcommand=self._log_scroll.set)
         self._log_text.pack(side=LEFT, fill=BOTH, expand=True)
         self._log_scroll.pack(side=RIGHT, fill=Y)
-        self._log_frame.pack(fill=BOTH, expand=False, pady=(0, 0))
+        self._log_frame.pack(fill=BOTH, expand=True, pady=(0, 0))
 
     # ── Bottom bar ──────────────────────────────────────────────────────────
 
@@ -413,14 +400,14 @@ class YTPDFCleanerApp(ttk.Window):
         """Show about dialog."""
         win = ttk.Toplevel(self)
         win.title(f"关于 {APP_NAME}")
-        win.geometry("520x540")
+        win.geometry("520x460")
         win.resizable(False, False)
         win.transient(self)
         win.grab_set()
 
         win.update_idletasks()
         px = self.winfo_x() + (self.winfo_width() - 520) // 2
-        py = self.winfo_y() + (self.winfo_height() - 540) // 2
+        py = self.winfo_y() + (self.winfo_height() - 460) // 2
         win.geometry(f"+{px}+{py}")
 
         main = ttk.Frame(win, padding=(32, 24))
@@ -467,8 +454,6 @@ class YTPDFCleanerApp(ttk.Window):
             ("✍  作者", "xbshen"),
             ("📋  功能", "检测并移除 SGCC 追踪水印"),
             ("🔧  技术栈", "Python · PyMuPDF · ttkbootstrap"),
-            ("🎨  主题", f"{DEFAULT_THEME}（清新浅色）"),
-            ("📐  布局", "侧边栏导航 + 主面板"),
         ]:
             row = ttk.Frame(info_frame)
             row.pack(fill=X, pady=4)
