@@ -247,7 +247,6 @@ class YTPDFCleanerApp(ttk.Window):
         # ── Settings card ───────────────────────────────────────────────
         settings_frame = ttk.LabelFrame(
             main, text="⚙ 输出设置",
-            bootstyle="default",
         )
         settings_frame.pack(fill=X, pady=(10, 0))
         settings = ttk.Frame(settings_frame, padding=(16, 12))
