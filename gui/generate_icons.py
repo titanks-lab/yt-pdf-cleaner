@@ -7,9 +7,9 @@ YT brand identity (teal #0E7C7B, dark #282828).
 
 Outputs to /opt/workspace/yt-pdf-cleaner/gui/:
   - icon.ico  (16, 24, 32, 48, 64, 128, 256)
-  - icon_about.png  (64x64)
-  - icon_dialog_check.png  (32x32)
-  - icon_dialog_warn.png  (32x32)
+  - icon_about.png  (48x48)
+  - icon_dialog_check.png  (48x48)
+  - icon_dialog_warn.png  (48x48)
 """
 
 import os
@@ -27,8 +27,8 @@ OUT_DIR = "/opt/workspace/yt-pdf-cleaner/gui"
 
 # ── Sizes ────────────────────────────────────────────────────────────────────
 ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
-ABOUT_SIZE = 64
-DIALOG_SIZE = 32
+ABOUT_SIZE = 48
+DIALOG_SIZE = 48
 
 # ── Font discovery ──────────────────────────────────────────────────────────
 FONT_PATHS = [

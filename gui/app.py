@@ -21,7 +21,7 @@ from .processor import ProcessingThread, ProcessingStatus, ProgressInfo
 
 APP_NAME = "YT-PDFCleaner"
 APP_TITLE = "YT-PDFCleaner — PDF 水印清除工具"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.2.0"
 DEFAULT_THEME = "minty"           # 🆕 清新浅色主题
 
 # Brand colors
@@ -56,18 +56,16 @@ class YTPDFCleanerApp(ttk.Window):
         # ── Window setup ────────────────────────────────────────────────
         self.geometry(f"{WIN_WIDTH}x{WIN_HEIGHT}")
         self.minsize(WIN_MIN_WIDTH, WIN_MIN_HEIGHT)
-        self._set_app_icon()
         self._center_window()
+        self._set_app_icon()
 
         # ── State ───────────────────────────────────────────────────────
         self._last_output_dir: Optional[str] = None
         self._output_mode = ttk.StringVar(value="pdf")
         self._processor: Optional[ProcessingThread] = None
-        self._log_expanded = False
 
         # ── Build layout ────────────────────────────────────────────────
         self._build_layout()
-        self._set_active_tab("files")
 
         # ── Bind close event ────────────────────────────────────────────
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -146,27 +144,7 @@ class YTPDFCleanerApp(ttk.Window):
         sidebar.pack(side=LEFT, fill=Y, padx=(0, 1))
         sidebar.pack_propagate(False)
 
-        # Navigation items
-        nav_frame = ttk.Frame(sidebar, bootstyle="light")
-        nav_frame.pack(fill=X, padx=8, pady=(16, 8))
-
-        self._nav_btns = {}
-        nav_items = [
-            ("files",   "📄  文件管理"),
-            ("settings","⚙  处理设置"),
-            ("history", "📊  处理记录"),
-        ]
-        for key, label in nav_items:
-            btn = ttk.Button(
-                nav_frame,
-                text=label,
-                command=lambda k=key: self._set_active_tab(k),
-                bootstyle="light",
-            )
-            btn.pack(fill=X, pady=3)
-            self._nav_btns[key] = btn
-
-        # Spacer
+        # Spacer — push about button to bottom
         ttk.Label(sidebar, text="", bootstyle="light").pack(fill=Y, expand=True)
 
         # About button at bottom
@@ -176,14 +154,6 @@ class YTPDFCleanerApp(ttk.Window):
             bootstyle="light",
         )
         self._btn_about.pack(fill=X, padx=8, pady=(0, 12))
-
-    def _set_active_tab(self, key: str) -> None:
-        """Highlight the active nav button."""
-        for k, btn in self._nav_btns.items():
-            if k == key:
-                btn.configure(bootstyle="primary")
-            else:
-                btn.configure(bootstyle="light")
 
     # ── Main panel ──────────────────────────────────────────────────────────
 
@@ -352,17 +322,9 @@ class YTPDFCleanerApp(ttk.Window):
         self._result_label.pack(side=RIGHT)
 
         # ── Log area ────────────────────────────────────────────────────
-        log_row = ttk.Frame(main)
-        log_row.pack(fill=X, pady=(6, 0))
+        log_label = ttk.Label(main, text="📋 处理日志", font=FONT_SMALL, foreground="#888")
+        log_label.pack(anchor=W, pady=(6, 2))
 
-        self._log_toggle_btn = ttk.Button(
-            log_row, text="▶  日志",
-            command=self._toggle_log,
-            bootstyle="secondary-outline", width=10,
-        )
-        self._log_toggle_btn.pack(anchor=W)
-
-        # Log frame (hidden)
         self._log_frame = ttk.Frame(main, borderwidth=1, relief=SOLID)
         self._log_text = ttk.Text(
             self._log_frame, height=6, wrap=WORD,
@@ -376,6 +338,7 @@ class YTPDFCleanerApp(ttk.Window):
         self._log_text.configure(yscrollcommand=self._log_scroll.set)
         self._log_text.pack(side=LEFT, fill=BOTH, expand=True)
         self._log_scroll.pack(side=RIGHT, fill=Y)
+        self._log_frame.pack(fill=BOTH, expand=False, pady=(0, 0))
 
     # ── Bottom bar ──────────────────────────────────────────────────────────
 
@@ -451,20 +414,20 @@ class YTPDFCleanerApp(ttk.Window):
         """Show about dialog."""
         win = ttk.Toplevel(self)
         win.title(f"关于 {APP_NAME}")
-        win.geometry("520x420")
+        win.geometry("520x540")
         win.resizable(False, False)
         win.transient(self)
         win.grab_set()
 
         win.update_idletasks()
         px = self.winfo_x() + (self.winfo_width() - 520) // 2
-        py = self.winfo_y() + (self.winfo_height() - 420) // 2
+        py = self.winfo_y() + (self.winfo_height() - 540) // 2
         win.geometry(f"+{px}+{py}")
 
         main = ttk.Frame(win, padding=(32, 24))
         main.pack(fill=BOTH, expand=True)
 
-        icon_about_path = os.path.join(os.path.dirname(__file__), "icon_about.png")
+        icon_about_path = self._resolve_gui_path("icon_about.png")
         if os.path.isfile(icon_about_path):
             try:
                 icon_img = ttk.PhotoImage(file=icon_about_path)
@@ -636,9 +599,6 @@ class YTPDFCleanerApp(ttk.Window):
 
         mode = self._output_mode.get()
 
-        if not self._log_expanded:
-            self._toggle_log()
-
         self._processor = ProcessingThread(
             files=entries,
             output_dir=output_dir,
@@ -721,7 +681,7 @@ class YTPDFCleanerApp(ttk.Window):
         icon_frame.pack(pady=(0, 4))
 
         dialog_icon = "icon_dialog_warn.png" if p.failed > 0 else "icon_dialog_check.png"
-        icon_path = os.path.join(os.path.dirname(__file__), dialog_icon)
+        icon_path = self._resolve_gui_path(dialog_icon)
         if os.path.isfile(icon_path):
             try:
                 icon_img = ttk.PhotoImage(file=icon_path)
@@ -796,16 +756,6 @@ class YTPDFCleanerApp(ttk.Window):
         self._log_text.see(END)
         self._log_text.configure(state=DISABLED)
 
-    def _toggle_log(self) -> None:
-        if self._log_expanded:
-            self._log_frame.pack_forget()
-            self._log_toggle_btn.configure(text="▶  日志")
-            self._log_expanded = False
-        else:
-            self._log_frame.pack(fill=BOTH, expand=True, padx=0, pady=(2, 0))
-            self._log_toggle_btn.configure(text="▼  日志")
-            self._log_expanded = True
-
     def _on_close(self) -> None:
         if self._processor and self._processor.is_alive():
             answer = Messagebox.yesno(
@@ -835,6 +785,15 @@ class YTPDFCleanerApp(ttk.Window):
         ico = os.path.join(base, "icon.ico")
         png = os.path.join(base, "icon.png")
         return ico if os.path.isfile(ico) else (png if os.path.isfile(png) else None)
+
+    @staticmethod
+    def _resolve_gui_path(filename: str) -> str:
+        """Resolve a GUI resource path (works in dev and frozen PyInstaller builds)."""
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            base = os.path.join(sys._MEIPASS, "gui")
+        else:
+            base = os.path.dirname(__file__)
+        return os.path.join(base, filename)
 
     def _set_app_icon(self) -> None:
         icon = self._resolve_icon_path()
