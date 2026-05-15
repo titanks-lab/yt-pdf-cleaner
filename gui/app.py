@@ -30,9 +30,9 @@ BRAND_SECONDARY = "#282828"
 
 # Window dimensions
 WIN_WIDTH = 1300
-WIN_HEIGHT = 850
+WIN_HEIGHT = 1020
 WIN_MIN_WIDTH = 960
-WIN_MIN_HEIGHT = 650
+WIN_MIN_HEIGHT = 780
 
 # ── Fonts ─────────────────────────────────────────────────────────────────────
 FONT_LOGO = ("Segoe UI", 22, "bold")
