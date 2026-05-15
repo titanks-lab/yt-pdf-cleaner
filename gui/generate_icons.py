@@ -3,7 +3,7 @@
 YT-PDFCleaner Icon Generator (v2 — fixed compositing bug)
 
 Generates a multi-resolution ICO file and dialog-use PNG icons with
-YT brand identity (red #E62429, dark #282828).
+YT brand identity (teal #0E7C7B, dark #282828).
 
 Outputs to /opt/workspace/yt-pdf-cleaner/gui/:
   - icon.ico  (16, 24, 32, 48, 64, 128, 256)
@@ -17,7 +17,7 @@ import io
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ── Brand colors ────────────────────────────────────────────────────────────
-YT_RED = (230, 36, 41)       # #E62429
+YT_TEAL = (14, 124, 123)     # #0E7C7B — Pro 版深青
 DARK   = (40, 40, 40)        # #282828 — slightly lightened for better visibility
 DARK_BG = (34, 34, 34)       # slightly darker inner area
 WHITE  = (255, 255, 255)
@@ -123,8 +123,8 @@ def make_base_icon(size, with_pdf=True):
     tx = cx - tw // 2
     ty = cy - th // 2 + y_center_offset
 
-    # Draw YT text in YT_RED
-    draw.text((tx, ty), yt_text, fill=YT_RED + (255,), font=font)
+    # Draw YT text in YT_TEAL
+    draw.text((tx, ty), yt_text, fill=YT_TEAL + (255,), font=font)
 
     # ── Draw "PDF" badge ──────────────────────────────────────────────────
     if with_pdf and size >= 24:
@@ -158,15 +158,15 @@ def make_base_icon(size, with_pdf=True):
         badge_y2 = min(y2 - 2, badge_y2)
 
         if badge_x2 > badge_x1 and badge_y2 > badge_y1:
-            # Badge background - dark red-tinted
-            badge_bg = (60, 20, 22, 230)
+            # Badge background - dark teal-tinted
+            badge_bg = (11, 62, 62, 230)
             rounded_rect(draw, (badge_x1, badge_y1, badge_x2, badge_y2), badge_r, fill=badge_bg)
 
-            # Badge border - thin red
+            # Badge border - thin teal
             if size >= 32:
                 draw.rounded_rectangle(
                     (badge_x1, badge_y1, badge_x2, badge_y2),
-                    radius=badge_r, outline=YT_RED + (160,), width=max(1, size // 64)
+                    radius=badge_r, outline=YT_TEAL + (160,), width=max(1, size // 64)
                 )
 
             # Badge text - white
@@ -216,7 +216,7 @@ def make_dialog_icon(size, variant):
     tx = cx - tw // 2
     ty = cy - th // 2 - int(size * 0.02)
 
-    draw.text((tx, ty), "YT", fill=YT_RED + (255,), font=font)
+    draw.text((tx, ty), "YT", fill=YT_TEAL + (255,), font=font)
 
     # ── Status indicator ────────────────────────────────────────────────────
     ind_size = int(size * 0.38)
@@ -373,13 +373,13 @@ def generate_all():
         h_act = h if h != 0 else 256
         png_bytes = ico_data[off:off+sz]
         png_img = Image.open(BytesIO(png_bytes))
-        # Count red pixels to verify text rendering
+        # Count teal pixels to verify text rendering
         px = png_img.load()
-        red_count = sum(1 for y in range(h_act) for x in range(w_act)
-                        if px[x, y][3] > 128 and px[x, y][0] > 200 and px[x, y][1] < 80 and px[x, y][2] < 80)
+        teal_count = sum(1 for y in range(h_act) for x in range(w_act)
+                        if px[x, y][3] > 128 and px[x, y][2] > 100 and px[x, y][0] < 80 and px[x, y][1] > 100)
         has_shadow = any(px[x, y][3] == 60 and px[x, y][:3] == (0, 0, 0)
                          for y in range(h_act) for x in range(w_act))
-        print(f"  {w_act:3d}x{h_act:<3d} | red pixels: {red_count:4d} | shadow: {has_shadow}")
+        print(f"  {w_act:3d}x{h_act:<3d} | teal pixels: {teal_count:4d} | shadow: {has_shadow}")
 
     for name in ["icon_about.png", "icon_dialog_check.png", "icon_dialog_warn.png"]:
         p = os.path.join(OUT_DIR, name)
@@ -390,9 +390,9 @@ def generate_all():
             w, h = im.size
             total = w * h
             opaque = sum(1 for y in range(h) for x in range(w) if px[x, y][3] > 128)
-            red = sum(1 for y in range(h) for x in range(w)
-                      if px[x, y][3] > 128 and px[x, y][0] > 200 and px[x, y][1] < 80 and px[x, y][2] < 80)
-            print(f"  {name:25s} {w}x{h} mode={im.mode} | opaque: {opaque}/{total} | red: {red}")
+            teal = sum(1 for y in range(h) for x in range(w)
+                      if px[x, y][3] > 128 and px[x, y][2] > 100 and px[x, y][0] < 80 and px[x, y][1] > 100)
+            print(f"  {name:25s} {w}x{h} mode={im.mode} | opaque: {opaque}/{total} | teal: {teal}")
 
     print("\n✅ All icons generated successfully!")
 
