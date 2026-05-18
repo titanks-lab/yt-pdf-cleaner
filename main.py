@@ -74,7 +74,7 @@ def main() -> None:
 
     # Version
     if args.version:
-        print("YT-PDFCleaner v1.1.1")
+        print("YT-PDFCleaner v1.3.0")
         print("PDF Watermark Removal Tool")
         sys.exit(0)
 

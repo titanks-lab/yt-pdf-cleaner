@@ -21,7 +21,7 @@ from .processor import ProcessingThread, ProcessingStatus, ProgressInfo
 
 APP_NAME = "YT-PDFCleaner"
 APP_TITLE = "YT-PDFCleaner — PDF 水印清除工具"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 DEFAULT_THEME = "litera"           # 🆕 Apple 风格主题
 
 # ── Apple 风格品牌色板 ──────────────────────────────────────────────────────
