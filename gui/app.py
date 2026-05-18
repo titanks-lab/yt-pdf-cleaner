@@ -1,6 +1,6 @@
 """Main GUI application window for YT-PDFCleaner — Pro Edition.
 
-Redesigned layout: light theme, clean single-panel interface.
+Apple-style UI redesign with clean, minimal aesthetics.
 """
 
 import os
@@ -22,11 +22,21 @@ from .processor import ProcessingThread, ProcessingStatus, ProgressInfo
 APP_NAME = "YT-PDFCleaner"
 APP_TITLE = "YT-PDFCleaner — PDF 水印清除工具"
 APP_VERSION = "1.2.0"
-DEFAULT_THEME = "minty"           # 🆕 清新浅色主题
+DEFAULT_THEME = "litera"           # 🆕 Apple 风格主题
 
-# Brand colors
-BRAND_PRIMARY = "#0E7C7B"    # 深青 — Pro 配色，与 minty 主题协调
-BRAND_SECONDARY = "#282828"
+# ── Apple 风格品牌色板 ──────────────────────────────────────────────────────
+BRAND_PRIMARY = "#0071E3"        # 苹果蓝 (主色)
+BRAND_LIGHT_BLUE = "#2997FF"     # 浅蓝
+BRAND_DARK = "#1D1D1F"           # 深黑文字
+BRAND_LIGHT_BG = "#F5F5F7"       # 浅灰背景
+BRAND_WHITE = "#FFFFFF"          # 纯白
+BRAND_SUCCESS = "#30D158"        # 苹果绿
+BRAND_DANGER = "#FF453A"         # 苹果红
+BRAND_WARNING = "#FF9F0A"        # 苹果橙
+BRAND_SECONDARY_TEXT = "#86868B" # 次要文字灰色
+BRAND_BORDER = "#E8E8ED"         # 分隔线/边框色
+BRAND_PILL_TEXT = "#A1A1A6"      # Pill 文字色
+BRAND_ALT_ROW = "#FAFAFA"        # 交替行背景
 
 # Window dimensions
 WIN_WIDTH = 1300
@@ -34,19 +44,16 @@ WIN_HEIGHT = 1020
 WIN_MIN_WIDTH = 960
 WIN_MIN_HEIGHT = 780
 
-# ── Fonts ─────────────────────────────────────────────────────────────────────
-FONT_LOGO = ("Segoe UI", 22, "bold")
-FONT_HEADING = ("Segoe UI", 16, "bold")
-FONT_SUBHEADING = ("Segoe UI", 13)
+# ── Apple 风格字体系统 ──────────────────────────────────────────────────────
+FONT_LOGO = ("Segoe UI", 18, "bold")
+FONT_HEADING = ("Segoe UI", 13, "bold")
 FONT_BODY = ("Segoe UI", 11)
 FONT_SMALL = ("Segoe UI", 10)
 FONT_MONO = ("Consolas", 10)
 
-# ── Main panel expands to fill window ──────────────────────────────
-
 
 class YTPDFCleanerApp(ttk.Window):
-    """Main application window — Pro Edition clean single-panel layout."""
+    """Main application window — Apple-style clean single-panel layout."""
 
     def __init__(self) -> None:
         super().__init__(title=APP_TITLE, themename=DEFAULT_THEME)
@@ -83,103 +90,113 @@ class YTPDFCleanerApp(ttk.Window):
         # ── Main content (fills remaining space) ───────────────────────
         self._build_main_panel(self)
 
-    # ── Top bar ─────────────────────────────────────────────────────────────
+    # ── Top bar (Apple style) ─────────────────────────────────────────────
 
     def _build_topbar(self) -> None:
-        """Build a sleek top navigation bar."""
+        """Build Apple-style sleek top navigation bar with white background."""
         bar = ttk.Frame(self, bootstyle="light", padding=(16, 10))
         bar.pack(fill=X)
+        # Force white background
+        bar.configure(bootstyle="light")
 
         # Left: Logo
         logo_frame = ttk.Frame(bar, bootstyle="light")
         logo_frame.pack(side=LEFT)
 
-        ttk.Label(
+        # YT logo badge — blue rounded square with white text
+        logo_badge = ttk.Label(
             logo_frame, text="YT",
-            font=FONT_LOGO, foreground=BRAND_PRIMARY,
-            bootstyle="light",
-        ).pack(side=LEFT)
+            font=("Segoe UI", 16, "bold"),
+            foreground=BRAND_WHITE,
+            background=BRAND_PRIMARY,
+            padding=(8, 2, 8, 2),
+        )
+        logo_badge.pack(side=LEFT)
 
         ttk.Label(
             logo_frame, text="PDFCleaner",
-            font=("Segoe UI", 20), foreground="#2c2c2c",
+            font=FONT_LOGO, foreground=BRAND_DARK,
             bootstyle="light",
-        ).pack(side=LEFT, padx=(6, 0))
+        ).pack(side=LEFT, padx=(8, 0))
 
-        # Version pill
+        # Version pill — light grey background, grey text
+        pill_frame = ttk.Frame(logo_frame, bootstyle="light")
+        pill_frame.pack(side=LEFT, padx=(10, 0))
         pill = ttk.Label(
-            logo_frame, text=f"v{APP_VERSION}",
-            font=("Segoe UI", 9, "bold"),
-            foreground="#999", bootstyle="light",
+            pill_frame, text=f"v{APP_VERSION}",
+            font=("Segoe UI", 10),
+            foreground=BRAND_PILL_TEXT,
+            background=BRAND_ALT_ROW,
+            padding=(8, 1, 8, 1),
         )
-        pill.pack(side=LEFT, padx=(8, 0))
+        pill.pack()
 
         # Spacer
         ttk.Label(bar, text="", bootstyle="light").pack(side=LEFT, fill=X, expand=True)
 
-        # Right: About button
-        self._btn_about = ttk.Button(
-            bar, text="ℹ 关于",
-            command=self._on_about,
-            bootstyle="link-light",
-        )
-        self._btn_about.pack(side=RIGHT, padx=(0, 12))
-
-        # Right: status indicator
+        # Right: status indicator (green dot + "就绪")
         self._top_status = ttk.Label(
             bar, text="● 就绪",
-            font=FONT_SMALL, foreground="#78c2ad",
+            font=FONT_SMALL, foreground=BRAND_SUCCESS,
             bootstyle="light",
         )
-        self._top_status.pack(side=RIGHT)
+        self._top_status.pack(side=RIGHT, padx=(0, 16))
 
-        # Separator line
-        sep = ttk.Separator(self, orient=HORIZONTAL)
-        sep.pack(fill=X)
+        # Right: About button — Apple blue link style
+        self._btn_about = ttk.Button(
+            bar, text="关于",
+            command=self._on_about,
+            bootstyle="link",
+        )
+        self._btn_about.pack(side=RIGHT)
 
-    # ── Sidebar ─────────────────────────────────────────────────────────────
-
-    # (Sidebar removed — not needed in this version)
+        # Separator line — 1px #E8E8ED
+        sep_frame = ttk.Frame(self, height=1, bootstyle="light")
+        sep_frame.pack(fill=X)
+        # Draw a colored line using a label
+        sep_line = ttk.Label(sep_frame, background=BRAND_BORDER, bootstyle="light")
+        sep_line.pack(fill=X, ipady=0)
 
     # ── Main panel ──────────────────────────────────────────────────────────
 
     def _build_main_panel(self, parent: ttk.Frame) -> None:
-        """Build the main content area."""
-        main = ttk.Frame(parent, padding=(20, 16))
+        """Build the main content area with Apple-style spacing."""
+        main = ttk.Frame(parent, padding=(24, 20))
         main.pack(side=LEFT, fill=BOTH, expand=True)
 
         # ── Toolbar row ─────────────────────────────────────────────────
         toolbar = ttk.Frame(main)
-        toolbar.pack(fill=X, pady=(0, 12))
+        toolbar.pack(fill=X, pady=(0, 14))
 
         left = ttk.Frame(toolbar)
         left.pack(side=LEFT)
-        ttk.Label(left, text="📋 文件列表", font=FONT_HEADING).pack(side=LEFT)
+        ttk.Label(left, text="文件列表", font=FONT_HEADING,
+                  foreground=BRAND_DARK).pack(side=LEFT)
         self._summary_label = ttk.Label(
             left, text="0 / 0 个文件 · 0 MB",
-            font=FONT_SMALL, foreground="#999",
+            font=FONT_SMALL, foreground=BRAND_SECONDARY_TEXT,
         )
-        self._summary_label.pack(side=LEFT, padx=(12, 0))
+        self._summary_label.pack(side=LEFT, padx=(14, 0))
 
         right = ttk.Frame(toolbar)
         right.pack(side=RIGHT)
 
         self._btn_files = ttk.Button(
-            right, text="📄 选择文件",
+            right, text="选择文件",
             command=self._on_select_files,
-            bootstyle="primary-outline", width=12,
+            bootstyle="primary", width=12,
         )
-        self._btn_files.pack(side=LEFT, padx=(0, 4))
+        self._btn_files.pack(side=LEFT, padx=(0, 6))
 
         self._btn_folder = ttk.Button(
-            right, text="📁 文件夹",
+            right, text="文件夹",
             command=self._on_select_folder,
-            bootstyle="primary-outline", width=10,
+            bootstyle="secondary-outline", width=10,
         )
-        self._btn_folder.pack(side=LEFT, padx=(0, 4))
+        self._btn_folder.pack(side=LEFT, padx=(0, 6))
 
         self._btn_clear_tool = ttk.Button(
-            right, text="🗑 清空",
+            right, text="清空",
             command=self._on_clear_list,
             bootstyle="secondary-outline", width=8,
         )
@@ -200,55 +217,67 @@ class YTPDFCleanerApp(ttk.Window):
         )
         self._file_list.pack(fill=BOTH, expand=True)
 
-        # ── Settings card ───────────────────────────────────────────────
-        settings_frame = ttk.LabelFrame(
-            main, text="⚙ 输出设置",
-        )
-        settings_frame.pack(fill=X, pady=(10, 0))
-        settings = ttk.Frame(settings_frame, padding=(16, 12))
-        settings.pack(fill=X, pady=(10, 0))
+        # ── Settings card (Apple style — no border) ─────────────────────
+        settings_card = ttk.Frame(main, bootstyle="light", padding=(16, 12))
+        settings_card.pack(fill=X, pady=(14, 0))
+        # Background tweak — use a slightly tinted frame
+        settings_card.configure(bootstyle="light")
 
-        # Format
-        fmt_row = ttk.Frame(settings)
-        fmt_row.pack(fill=X, pady=(0, 8))
+        # Card inner
+        settings_inner = ttk.Frame(settings_card, bootstyle="light")
+        settings_inner.pack(fill=X)
 
-        ttk.Label(fmt_row, text="输出格式：", font=FONT_BODY).pack(side=LEFT, padx=(0, 12))
+        # Section label
+        ttk.Label(settings_inner, text="输出设置",
+                  font=FONT_HEADING, foreground=BRAND_DARK,
+                  bootstyle="light").pack(anchor=W, pady=(0, 10))
 
+        # Format row
+        fmt_row = ttk.Frame(settings_inner, bootstyle="light")
+        fmt_row.pack(fill=X, pady=(0, 10))
+
+        ttk.Label(fmt_row, text="输出格式",
+                  font=FONT_BODY, foreground=BRAND_DARK,
+                  bootstyle="light").pack(side=LEFT, padx=(0, 14))
+
+        # Capsule-style radio buttons using primary-toolbutton
         self._rb_pdf = ttk.Radiobutton(
             fmt_row, text="PDF（保留原排版）",
             variable=self._output_mode, value="pdf",
-            bootstyle="success-toolbutton",
+            bootstyle="primary-toolbutton",
         )
-        self._rb_pdf.pack(side=LEFT, padx=(0, 4))
+        self._rb_pdf.pack(side=LEFT, padx=(0, 6))
 
         self._rb_md = ttk.Radiobutton(
             fmt_row, text="Markdown（纯文本）",
             variable=self._output_mode, value="markdown",
-            bootstyle="success-toolbutton",
+            bootstyle="primary-toolbutton",
         )
         self._rb_md.pack(side=LEFT)
 
-        # Directory
-        dir_row = ttk.Frame(settings)
+        # Directory row
+        dir_row = ttk.Frame(settings_inner, bootstyle="light")
         dir_row.pack(fill=X)
 
-        ttk.Label(dir_row, text="输出目录：", font=FONT_BODY).pack(side=LEFT, padx=(0, 12))
+        ttk.Label(dir_row, text="输出目录",
+                  font=FONT_BODY, foreground=BRAND_DARK,
+                  bootstyle="light").pack(side=LEFT, padx=(0, 14))
 
         self._output_dir_var = ttk.StringVar(value="")
         self._output_dir_entry = ttk.Entry(
             dir_row, textvariable=self._output_dir_var, font=FONT_BODY,
         )
-        self._output_dir_entry.pack(side=LEFT, fill=X, expand=True, padx=(0, 6))
+        self._output_dir_entry.pack(side=LEFT, fill=X, expand=True, padx=(0, 8))
 
         self._btn_browse = ttk.Button(
-            dir_row, text="📁 浏览",
+            dir_row, text="浏览",
             command=self._on_browse_output_dir,
-            bootstyle="primary-outline", width=7,
+            bootstyle="secondary-outline", width=7,
         )
-        self._btn_browse.pack(side=LEFT, padx=(0, 4))
+        self._btn_browse.pack(side=LEFT, padx=(0, 6))
 
         self._btn_open_dir = ttk.Button(
-            dir_row, text="📂 打开",
+            dir_row, text="打开",
             command=self._on_open_output_dir,
             bootstyle="secondary-outline", width=7,
         )
@@ -256,17 +285,17 @@ class YTPDFCleanerApp(ttk.Window):
 
         # ── Actions row ─────────────────────────────────────────────────
         actions = ttk.Frame(main)
-        actions.pack(fill=X, pady=(10, 0))
+        actions.pack(fill=X, pady=(14, 0))
 
         self._btn_start = ttk.Button(
-            actions, text="▶  开始处理",
+            actions, text="开始处理",
             command=self._on_start_processing,
-            bootstyle="success", width=18,
+            bootstyle="primary", width=18,
         )
         self._btn_start.pack(side=LEFT, padx=(0, 8))
 
         self._btn_stop = ttk.Button(
-            actions, text="⏹  停止",
+            actions, text="停止",
             command=self._on_stop_processing,
             bootstyle="danger-outline", width=12,
             state=DISABLED,
@@ -276,46 +305,53 @@ class YTPDFCleanerApp(ttk.Window):
         ttk.Label(actions, text="").pack(side=LEFT, fill=X, expand=True)
 
         self._btn_clear = ttk.Button(
-            actions, text="🗑  清空列表",
+            actions, text="清空列表",
             command=self._on_clear_list,
             bootstyle="secondary-outline", width=14,
         )
         self._btn_clear.pack(side=RIGHT)
 
-        # ── Progress row ────────────────────────────────────────────────
+        # ── Progress row (Apple thin style) ─────────────────────────────
         progress = ttk.Frame(main)
-        progress.pack(fill=X, pady=(10, 0))
+        progress.pack(fill=X, pady=(14, 0))
 
         self._progress_bar = ttk.Progressbar(
             progress, mode="determinate", value=0,
-            bootstyle="success-striped",
+            bootstyle="primary-striped",
         )
-        self._progress_bar.pack(fill=X, pady=(0, 4))
+        self._progress_bar.pack(fill=X, pady=(0, 6))
 
         info_row = ttk.Frame(progress)
         info_row.pack(fill=X)
 
         self._progress_label = ttk.Label(
             info_row, text="就绪 — 请选择 PDF 文件",
-            font=FONT_BODY,
+            font=FONT_BODY, foreground=BRAND_DARK,
         )
         self._progress_label.pack(side=LEFT)
 
         self._result_label = ttk.Label(
             info_row, text="0 成功 / 0 失败 / 0 跳过",
-            font=FONT_BODY, foreground="#999",
+            font=FONT_BODY, foreground=BRAND_SECONDARY_TEXT,
         )
         self._result_label.pack(side=RIGHT)
 
-        # ── Log area ────────────────────────────────────────────────────
-        log_label = ttk.Label(main, text="📋 处理日志", font=FONT_SMALL, foreground="#888")
-        log_label.pack(anchor=W, pady=(6, 2))
+        # ── Log area (Apple style — rounded, light background) ──────────
+        log_header = ttk.Frame(main)
+        log_header.pack(fill=X, pady=(8, 4))
+        ttk.Label(log_header, text="处理日志",
+                  font=FONT_SMALL, foreground=BRAND_SECONDARY_TEXT).pack(side=LEFT)
 
-        self._log_frame = ttk.Frame(main, borderwidth=1, relief=SOLID)
+        # Wrap the Text widget in a frame with rounded-corner effect (border)
+        self._log_frame = ttk.Frame(main, bootstyle="light")
+        # Add a subtle border effect
+        self._log_frame.pack(fill=BOTH, expand=True, pady=(0, 0))
+
         self._log_text = ttk.Text(
             self._log_frame, height=6, wrap=WORD,
             font=FONT_MONO, state=DISABLED,
-            foreground="#333", background="#f5f5f5",
+            foreground="#4A4A4A", background=BRAND_ALT_ROW,
+            relief=SOLID, borderwidth=1,
         )
         self._log_scroll = ttk.Scrollbar(
             self._log_frame, orient=VERTICAL,
@@ -324,18 +360,25 @@ class YTPDFCleanerApp(ttk.Window):
         self._log_text.configure(yscrollcommand=self._log_scroll.set)
         self._log_text.pack(side=LEFT, fill=BOTH, expand=True)
         self._log_scroll.pack(side=RIGHT, fill=Y)
-        self._log_frame.pack(fill=BOTH, expand=True, pady=(0, 0))
 
-    # ── Bottom bar ──────────────────────────────────────────────────────────
+    # ── Bottom bar (Apple style) ───────────────────────────────────────────
 
     def _build_bottombar(self) -> None:
-        """Build a status footer."""
+        """Build Apple-style status footer with thin top border."""
+        # Bar goes at the very bottom
         bar = ttk.Frame(self, bootstyle="light", padding=(16, 6))
         bar.pack(fill=X, side=BOTTOM)
 
+        # Separator line just above the bar
+        sep_frame = ttk.Frame(self, height=1)
+        sep_frame.pack(fill=X, side=BOTTOM)
+        sep_line = ttk.Label(sep_frame, background=BRAND_BORDER)
+        sep_line.pack(fill=X, ipady=0)
+
         self._status_label = ttk.Label(
             bar, text="就绪",
-            font=FONT_SMALL, bootstyle="light",
+            font=FONT_SMALL, foreground=BRAND_SECONDARY_TEXT,
+            bootstyle="light",
         )
         self._status_label.pack(side=LEFT)
 
@@ -346,7 +389,7 @@ class YTPDFCleanerApp(ttk.Window):
 
         ttk.Label(
             bar, text=f"YT-PDFCleaner · v{APP_VERSION}",
-            font=("Segoe UI", 9), foreground="#bbb",
+            font=("Segoe UI", 9), foreground=BRAND_PILL_TEXT,
             bootstyle="light",
         ).pack(side=RIGHT)
 
@@ -397,7 +440,7 @@ class YTPDFCleanerApp(ttk.Window):
         thread.start()
 
     def _on_about(self) -> None:
-        """Show about dialog."""
+        """Show about dialog with Apple-style design."""
         win = ttk.Toplevel(self)
         win.title(f"关于 {APP_NAME}")
         win.geometry("520x460")
@@ -425,24 +468,30 @@ class YTPDFCleanerApp(ttk.Window):
 
         badge_frame = ttk.Frame(main)
         badge_frame.pack(pady=(0, 8))
-        ttk.Label(
+        # YT badge in about dialog
+        badge = ttk.Label(
             badge_frame, text="YT",
             font=("Segoe UI", 26, "bold"),
-            foreground=BRAND_PRIMARY,
-        ).pack(side=LEFT)
+            foreground=BRAND_WHITE,
+            background=BRAND_PRIMARY,
+            padding=(12, 4, 12, 4),
+        )
+        badge.pack(side=LEFT)
         ttk.Label(
             badge_frame, text="PDFCleaner",
             font=("Segoe UI", 24),
-        ).pack(side=LEFT, padx=(8, 0))
+            foreground=BRAND_DARK,
+        ).pack(side=LEFT, padx=(10, 0))
 
         ttk.Label(
             main, text=f"v{APP_VERSION}",
-            font=FONT_BODY, foreground="#999",
+            font=FONT_BODY, foreground=BRAND_PILL_TEXT,
         ).pack(pady=(0, 16))
 
         ttk.Label(
             main, text="PDF 水印清除工具（绿色免安装版）",
             font=("Segoe UI", 13, "bold"),
+            foreground=BRAND_DARK,
         ).pack(pady=(0, 12))
 
         ttk.Separator(main, orient=HORIZONTAL).pack(fill=X, pady=(4, 16))
@@ -451,28 +500,30 @@ class YTPDFCleanerApp(ttk.Window):
         info_frame.pack(fill=X, pady=(0, 16))
 
         for label, value in [
-            ("✍  作者", "xbshen"),
-            ("📋  功能", "检测并移除 SGCC 追踪水印"),
-            ("🔧  技术栈", "Python · PyMuPDF · ttkbootstrap"),
+            ("作者", "xbshen"),
+            ("功能", "检测并移除 SGCC 追踪水印"),
+            ("技术栈", "Python · PyMuPDF · ttkbootstrap"),
         ]:
             row = ttk.Frame(info_frame)
             row.pack(fill=X, pady=4)
             ttk.Label(
-                row, text=label, font=FONT_BODY, width=10, anchor=E
+                row, text=label, font=FONT_BODY, width=10, anchor=E,
+                foreground=BRAND_SECONDARY_TEXT,
             ).pack(side=LEFT, padx=(0, 16))
             ttk.Label(
-                row, text=value, font=FONT_BODY
+                row, text=value, font=FONT_BODY,
+                foreground=BRAND_DARK,
             ).pack(side=LEFT)
 
         ttk.Separator(main, orient=HORIZONTAL).pack(fill=X, pady=(4, 16))
         ttk.Label(
             main, text="© 2026 YT Technologies",
-            font=("Segoe UI", 10), foreground="#888",
+            font=("Segoe UI", 10), foreground=BRAND_PILL_TEXT,
         ).pack(pady=(0, 16))
 
         ttk.Button(
-            main, text="✔  确定",
-            command=win.destroy, bootstyle="success", width=18,
+            main, text="确定",
+            command=win.destroy, bootstyle="primary", width=18,
         ).pack()
 
     def _on_open_output_dir(self) -> None:
@@ -579,7 +630,7 @@ class YTPDFCleanerApp(ttk.Window):
         self._btn_clear_tool.configure(state=DISABLED)
         self._progress_bar.configure(value=0)
         self._result_label.configure(text="0 成功 / 0 失败 / 0 跳过")
-        self._top_status.configure(text="● 处理中…", foreground="#f3969a")
+        self._top_status.configure(text="● 处理中…", foreground=BRAND_WARNING)
 
         mode = self._output_mode.get()
 
@@ -630,7 +681,7 @@ class YTPDFCleanerApp(ttk.Window):
         self._btn_clear.configure(state=NORMAL)
         self._btn_clear_tool.configure(state=NORMAL)
         self._progress_bar.configure(value=100.0)
-        self._top_status.configure(text="● 就绪", foreground="#78c2ad")
+        self._top_status.configure(text="● 就绪", foreground=BRAND_SUCCESS)
 
         for entry in self._file_list.get_all_entries():
             if entry.checked:
@@ -689,22 +740,24 @@ class YTPDFCleanerApp(ttk.Window):
         ttk.Label(
             main, text=title_text,
             font=("Segoe UI", 16, "bold"),
+            foreground=BRAND_DARK,
         ).pack(pady=(0, 16))
 
         stats_frame = ttk.Frame(main)
         stats_frame.pack(fill=X, pady=(0, 20))
 
         for label, value in [
-            ("📄 总计", f"{p.total} 个文件"),
-            ("✅ 成功", f"{p.success}"),
-            ("❌ 失败", f"{p.failed}"),
-            ("⏭  跳过", f"{p.skipped}"),
+            ("总计", f"{p.total} 个文件"),
+            ("成功", f"{p.success}"),
+            ("失败", f"{p.failed}"),
+            ("跳过", f"{p.skipped}"),
         ]:
             row = ttk.Frame(stats_frame)
             row.pack(fill=X, pady=2)
             ttk.Label(
                 row, text=label, font=("Segoe UI", 12),
                 width=10, anchor=E,
+                foreground=BRAND_SECONDARY_TEXT,
             ).pack(side=LEFT, padx=(0, 16))
             ttk.Label(
                 row, text=value, font=("Segoe UI", 12, "bold"),
@@ -720,15 +773,15 @@ class YTPDFCleanerApp(ttk.Window):
         output_dir = self._output_dir_var.get()
         if output_dir and os.path.isdir(output_dir):
             ttk.Button(
-                center, text="📂 打开输出目录",
+                center, text="打开输出目录",
                 command=lambda: (self._open_folder_in_explorer(output_dir), win.destroy()),
-                bootstyle="info", width=18,
+                bootstyle="primary-outline", width=18,
             ).pack(side=LEFT, padx=(0, 12))
 
         ttk.Button(
-            center, text="✔  确定",
+            center, text="确定",
             command=win.destroy,
-            bootstyle="success", width=18,
+            bootstyle="primary", width=18,
         ).pack(side=LEFT)
 
     def _on_processing_log(self, message: str) -> None:

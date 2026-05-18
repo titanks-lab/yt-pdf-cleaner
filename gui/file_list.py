@@ -1,4 +1,7 @@
-"""File list component with Treeview, drag-drop, and right-click context menu."""
+"""File list component with Treeview, drag-drop, and right-click context menu.
+
+Apple-style UI: 44px row height, alternating rows, clean heading.
+"""
 
 import os
 import sys
@@ -14,6 +17,15 @@ from ttkbootstrap.constants import *
 
 from core.engine import detect_watermark
 
+
+# ── Apple 风格品牌色 ─────────────────────────────────────────────────────────
+BRAND_ALT_ROW = "#FAFAFA"
+BRAND_WHITE = "#FFFFFF"
+BRAND_HEADING_BG = "#F5F5F7"
+BRAND_HEADING_FG = "#86868B"
+BRAND_SELECTION_BG = "#E8F0FE"
+BRAND_PRIMARY = "#0071E3"
+BRAND_SUCCESS = "#30D158"
 
 # ── Status icons ─────────────────────────────────────────────────────────────
 STATUS_ICONS = {
@@ -109,8 +121,8 @@ class FileListFrame(ttk.Frame):
     # ── UI Construction ──────────────────────────────────────────────────────
 
     def _build_ui(self) -> None:
-        """Create the Treeview and scrollbar."""
-        # Outer frame with border
+        """Create the Treeview and scrollbar with Apple-style aesthetics."""
+        # Outer frame with thin border
         outer = ttk.Frame(self, borderwidth=1, relief=SOLID)
         outer.pack(fill=BOTH, expand=True, padx=0, pady=0)
 
@@ -135,6 +147,32 @@ class FileListFrame(ttk.Frame):
         self._tree.column("name", width=320, minwidth=150, anchor=W, stretch=True)
         self._tree.column("size", width=90, minwidth=70, anchor=E, stretch=False)
         self._tree.column("status", width=120, minwidth=100, anchor=CENTER, stretch=False)
+
+        # ── Apple-style styling ───────────────────────────────────────
+        style = ttk.Style()
+
+        # Row height: 44px (Apple HIG touch standard)
+        style.configure("Treeview", rowheight=44, font=("Segoe UI", 11))
+
+        # Heading style: #F5F5F7 background, #86868B text
+        style.configure("Treeview.Heading",
+                        background=BRAND_HEADING_BG,
+                        foreground=BRAND_HEADING_FG,
+                        font=("Segoe UI", 10, "bold"),
+                        borderwidth=0,
+                        relief="flat")
+        style.map("Treeview.Heading",
+                  background=[("active", "#E8E8ED")])
+
+        # Alternating row tags
+        self._tree.tag_configure("evenrow", background=BRAND_WHITE)
+        self._tree.tag_configure("oddrow", background=BRAND_ALT_ROW)
+
+        # Selection color: Apple blue tint
+        style.map("Treeview",
+                  background=[("selected", BRAND_SELECTION_BG)],
+                  foreground=[("selected", "#1D1D1F")],
+                  fieldbackground=[("selected", BRAND_SELECTION_BG)])
 
         # Scrollbar
         vsb = ttk.Scrollbar(outer, orient=VERTICAL, command=self._tree.yview)
@@ -394,8 +432,10 @@ class FileListFrame(ttk.Frame):
     # ── Helpers ─────────────────────────────────────────────────────────────
 
     def _insert_row(self, entry: FileEntry) -> None:
-        """Insert a new row into the Treeview."""
-        self._tree.insert("", END, values=entry.to_row(), tags=(entry.path,))
+        """Insert a new row into the Treeview with alternating row tag."""
+        index = len(self._tree.get_children())
+        tag = "evenrow" if index % 2 == 0 else "oddrow"
+        self._tree.insert("", END, values=entry.to_row(), tags=(entry.path, tag))
 
     def _refresh_row(self, entry: FileEntry) -> None:
         """Update the display for a single entry."""

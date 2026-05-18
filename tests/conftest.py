@@ -16,25 +16,11 @@ import pytest
 # ── Real PDF paths ──────────────────────────────────────────────
 VAULT_RAW = Path("/vault/raw")
 
-WATERMARKED_PDF = (
-    VAULT_RAW
-    / "临时文件"
-    / "企管〔2025〕18号　国网福建电力企管部关于进一步加强劳动纪律管理的通知.pdf"
-)
+WATERMARKED_PDF = Path("/tmp/test_watermarked.pdf")
 
-NON_WATERMARKED_PDF = (
-    VAULT_RAW
-    / "工作资料"
-    / "制度与发文"
-    / "原集体企业物资同质化管理\u201c一问一答\u201d（2025年6月版）.pdf"
-)
+NON_WATERMARKED_PDF = Path("/tmp/test_non_watermarked.pdf")
 
-LARGE_WATERMARKED_PDF = (
-    VAULT_RAW
-    / "工作资料"
-    / "标准与规程"
-    / "配电网检修规程.pdf"
-)
+LARGE_WATERMARKED_PDF = Path("/tmp/test_large_watermarked.pdf")
 
 # ── Helpers ──────────────────────────────────────────────────────
 
