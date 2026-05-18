@@ -206,9 +206,11 @@ class YTPDFCleanerApp(ttk.Window):
         self.bind("<Alt-d>", lambda e: self._on_select_folder())
         self.bind("<Alt-l>", lambda e: self._on_clear_list())
 
-        # ── File list ───────────────────────────────────────────────────
+        # ── File list (Apple style, compact height) ──────────────────────
         file_panel = ttk.Frame(main)
-        file_panel.pack(fill=BOTH, expand=True)
+        file_panel.pack(fill=X, pady=(0, 6))
+        file_panel.configure(height=260)
+        file_panel.pack_propagate(False)
 
         self._file_list = FileListFrame(
             file_panel,
@@ -344,7 +346,7 @@ class YTPDFCleanerApp(ttk.Window):
 
         # Wrap the Text widget in a frame with rounded-corner effect (border)
         self._log_frame = ttk.Frame(main, bootstyle="light")
-        # Add a subtle border effect
+        # Fill remaining horizontal space, and take remaining vertical space
         self._log_frame.pack(fill=BOTH, expand=True, pady=(0, 0))
 
         self._log_text = ttk.Text(
@@ -455,16 +457,6 @@ class YTPDFCleanerApp(ttk.Window):
 
         main = ttk.Frame(win, padding=(32, 24))
         main.pack(fill=BOTH, expand=True)
-
-        icon_about_path = self._resolve_gui_path("icon_about.png")
-        if os.path.isfile(icon_about_path):
-            try:
-                icon_img = ttk.PhotoImage(file=icon_about_path)
-                icon_lbl = ttk.Label(main, image=icon_img)
-                icon_lbl.image = icon_img
-                icon_lbl.pack(pady=(0, 12))
-            except Exception:
-                pass
 
         badge_frame = ttk.Frame(main)
         badge_frame.pack(pady=(0, 8))
