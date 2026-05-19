@@ -220,10 +220,9 @@ class YTPDFCleanerApp(ttk.Window):
         self._file_list.pack(fill=BOTH, expand=True)
 
         # ── Settings card (Apple style — no border) ─────────────────────
-        settings_card = ttk.Frame(main, bootstyle="light", padding=(16, 12))
+        settings_card = ttk.Frame(main, padding=(16, 12))
         settings_card.pack(fill=X, pady=(14, 0))
-        # Background tweak — use a slightly tinted frame
-        settings_card.configure(bootstyle="light")
+        settings_card.configure(bootstyle="light", background=BRAND_LIGHT_BG)
 
         # Card inner
         settings_inner = ttk.Frame(settings_card, bootstyle="light")
@@ -352,7 +351,7 @@ class YTPDFCleanerApp(ttk.Window):
         self._log_text = ttk.Text(
             self._log_frame, height=6, wrap=WORD,
             font=FONT_MONO, state=DISABLED,
-            foreground="#4A4A4A", background=BRAND_ALT_ROW,
+            foreground="#4A4A4A", background=BRAND_LIGHT_BG,
             relief=SOLID, borderwidth=1,
         )
         self._log_scroll = ttk.Scrollbar(
@@ -391,7 +390,7 @@ class YTPDFCleanerApp(ttk.Window):
 
         ttk.Label(
             bar, text=f"YT-PDFCleaner · v{APP_VERSION}",
-            font=("Segoe UI", 9), foreground=BRAND_PILL_TEXT,
+            font=FONT_SMALL, foreground=BRAND_PILL_TEXT,
             bootstyle="light",
         ).pack(side=RIGHT)
 
@@ -445,14 +444,14 @@ class YTPDFCleanerApp(ttk.Window):
         """Show about dialog with Apple-style design."""
         win = ttk.Toplevel(self)
         win.title(f"关于 {APP_NAME}")
-        win.geometry("520x460")
+        win.geometry("400x420")
         win.resizable(False, False)
         win.transient(self)
         win.grab_set()
 
         win.update_idletasks()
-        px = self.winfo_x() + (self.winfo_width() - 520) // 2
-        py = self.winfo_y() + (self.winfo_height() - 460) // 2
+        px = self.winfo_x() + (self.winfo_width() - 400) // 2
+        py = self.winfo_y() + (self.winfo_height() - 420) // 2
         win.geometry(f"+{px}+{py}")
 
         main = ttk.Frame(win, padding=(32, 24))
