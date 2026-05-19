@@ -444,14 +444,15 @@ class YTPDFCleanerApp(ttk.Window):
         """Show about dialog with Apple-style design."""
         win = ttk.Toplevel(self)
         win.title(f"关于 {APP_NAME}")
-        win.geometry("400x420")
+        win.geometry("400x460")
         win.resizable(False, False)
         win.transient(self)
         win.grab_set()
+        win._set_app_icon()
 
         win.update_idletasks()
         px = self.winfo_x() + (self.winfo_width() - 400) // 2
-        py = self.winfo_y() + (self.winfo_height() - 420) // 2
+        py = self.winfo_y() + (self.winfo_height() - 460) // 2
         win.geometry(f"+{px}+{py}")
 
         main = ttk.Frame(win, padding=(32, 24))
