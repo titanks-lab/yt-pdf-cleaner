@@ -1,44 +1,51 @@
 #!/usr/bin/env python3
 """
-YT-PDFCleaner Icon Generator (v2 — fixed compositing bug)
+YT-PDFCleaner Icon Generator (v3 — Apple blue).
 
-Generates a multi-resolution ICO file and dialog-use PNG icons with
-YT brand identity (teal #0E7C7B, dark #282828).
+Generates Apple-style YT brand icons in the script's own directory.
 
-Outputs to /opt/workspace/yt-pdf-cleaner/gui/:
-  - icon.ico  (16, 24, 32, 48, 64, 128, 256)
-  - icon_about.png  (48x48)
-  - icon_dialog_check.png  (48x48)
-  - icon_dialog_warn.png  (48x48)
+Outputs to <script_dir>/:
+  - icon.png              (256×256 RGBA)
+  - icon.ico              (16, 24, 32, 48, 64, 128, 256 multi-res)
+  - icon_dialog_check.png (48×48 green check)
+  - icon_dialog_warn.png  (48×48 amber warning)
+
+NOTE: icon_about.png is no longer needed — About dialog uses Label text badge.
 """
 
 import os
 import io
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-# ── Brand colors ────────────────────────────────────────────────────────────
-YT_TEAL = (14, 124, 123)     # #0E7C7B — Pro 版深青
-DARK   = (40, 40, 40)        # #282828 — slightly lightened for better visibility
-DARK_BG = (34, 34, 34)       # slightly darker inner area
-WHITE  = (255, 255, 255)
-NEAR_BLACK = (30, 30, 30)
+# ── Apple Brand Colors ───────────────────────────────────────────────────────
+APPLE_BLUE  = (0, 113, 227)       # #0071E3
+DARK        = (29, 29, 31)        # #1D1D1F
+DARK_BG     = (40, 40, 42)        # slightly lighter dark for icon bg
+WHITE       = (255, 255, 255)
+SUCCESS_GREEN = (48, 209, 88)     # #30D158
+WARNING_AMBER  = (255, 159, 10)   # #FF9F0A
 
-OUT_DIR = "/opt/workspace/yt-pdf-cleaner/gui"
+OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ── Sizes ────────────────────────────────────────────────────────────────────
 ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
-ABOUT_SIZE = 48
 DIALOG_SIZE = 48
 
-# ── Font discovery ──────────────────────────────────────────────────────────
+# ── Font discovery (cross-platform) ──────────────────────────────────────────
 FONT_PATHS = [
+    # Linux
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
+    # macOS
+    "/System/Library/Fonts/Helvetica.ttc",
+    "/Library/Fonts/Arial.ttf",
+    # Windows
+    "C:\\Windows\\Fonts\\segoeuib.ttf",
+    "C:\\Windows\\Fonts\\arialbd.ttf",
+    "C:\\Windows\\Fonts\\arial.ttf",
+    "C:\\Windows\\Fonts\\segoeui.ttf",
 ]
 
 
@@ -58,12 +65,10 @@ def rounded_rect(draw, xy, radius, fill):
     draw.rounded_rectangle(xy, radius=radius, fill=fill)
 
 
-def make_base_icon(size, with_pdf=True):
+def make_base_icon(size, with_badge=True):
     """
-    Create the YT-PDFCleaner base icon at the given size.
+    Create Apple-style YT icon at given size.
     Returns an RGBA Image.
-
-    IMPORTANT: always get a fresh ImageDraw.Draw after Image.alpha_composite!
     """
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
 
@@ -73,39 +78,33 @@ def make_base_icon(size, with_pdf=True):
     x1, y1 = pad, pad
     x2, y2 = size - pad - 1, size - pad - 1
 
-    # ── Drop shadow (only for sizes >= 48) ─────────────────────────────────
+    # ── Drop shadow (sizes >= 48) ──────────────────────────────────────────
     if size >= 48:
         shadow_offset = max(1, size // 48)
-        shadow_alpha = 50
         shadow_img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         sd = ImageDraw.Draw(shadow_img)
         sd.rounded_rectangle(
             (x1 + shadow_offset, y1 + shadow_offset,
              x2 + shadow_offset, y2 + shadow_offset),
-            radius=r, fill=(0, 0, 0, shadow_alpha)
+            radius=r, fill=(0, 0, 0, 50)
         )
         blur_r = max(1, size // 64)
         shadow_img = shadow_img.filter(ImageFilter.GaussianBlur(radius=blur_r))
         canvas = Image.alpha_composite(canvas, shadow_img)
-        # ⚠️ canvas changed — need a new ImageDraw!
 
     # ── Background rounded rect ────────────────────────────────────────────
     draw = ImageDraw.Draw(canvas)
-    rounded_rect(draw, (x1, y1, x2, y2), r, fill=DARK + (255,))
+    rounded_rect(draw, (x1, y1, x2, y2), r, fill=APPLE_BLUE + (255,))
 
-    # Slightly darker inner glow / subtle border
+    # Subtle white inner border
     if size >= 32:
-        # Inner subtle highlight (top-left edge)
-        highlight_color = (55, 55, 55, 120)
-        draw.rounded_rectangle((x1, y1, x2, y2), radius=r, outline=highlight_color, width=1)
+        draw.rounded_rectangle((x1, y1, x2, y2), radius=r,
+                               outline=(255, 255, 255, 50), width=max(1, size // 64))
 
     # ── Draw "YT" letters ──────────────────────────────────────────────────
     yt_text = "YT"
     font_size = int(size * 0.48)
-
-    font = find_font(font_size, bold=True)
-    if font is None:
-        font = ImageFont.load_default()
+    font = find_font(font_size, bold=True) or ImageFont.load_default()
 
     try:
         bbox = draw.textbbox((0, 0), yt_text, font=font)
@@ -116,23 +115,17 @@ def make_base_icon(size, with_pdf=True):
 
     cx = size // 2
     cy = size // 2
-
-    # YT text position - biased slightly up if PDF badge is below
-    y_center_offset = -int(size * 0.04) if (with_pdf and size >= 24) else 0
+    y_center_offset = -int(size * 0.04) if (with_badge and size >= 24) else 0
 
     tx = cx - tw // 2
     ty = cy - th // 2 + y_center_offset
+    draw.text((tx, ty), yt_text, fill=WHITE + (255,), font=font)
 
-    # Draw YT text in YT_TEAL
-    draw.text((tx, ty), yt_text, fill=YT_TEAL + (255,), font=font)
-
-    # ── Draw "PDF" badge ──────────────────────────────────────────────────
-    if with_pdf and size >= 24:
+    # ── Draw "PDF" badge ───────────────────────────────────────────────────
+    if with_badge and size >= 24:
         pdf_text = "PDF"
         pdf_font_size = int(size * 0.15)
-        pdf_font = find_font(pdf_font_size, bold=True)
-        if pdf_font is None:
-            pdf_font = ImageFont.load_default()
+        pdf_font = find_font(pdf_font_size, bold=True) or ImageFont.load_default()
 
         try:
             pdf_bbox = draw.textbbox((0, 0), pdf_text, font=pdf_font)
@@ -141,35 +134,25 @@ def make_base_icon(size, with_pdf=True):
         except Exception:
             ptw, pth = pdf_font_size * 0.6 * len(pdf_text), pdf_font_size
 
-        # Badge below YT
         badge_pad_x = max(2, int(size * 0.03))
         badge_pad_y = max(1, int(size * 0.02))
         badge_r = max(1, int(size * 0.03))
-
         badge_y = ty + th + int(size * 0.03)
-        badge_x1 = cx - ptw // 2 - badge_pad_x
-        badge_y1 = badge_y - badge_pad_y
-        badge_x2 = cx + ptw // 2 + badge_pad_x
-        badge_y2 = badge_y + pth + badge_pad_y
+        bx1 = cx - ptw // 2 - badge_pad_x
+        by1 = badge_y - badge_pad_y
+        bx2 = cx + ptw // 2 + badge_pad_x
+        by2 = badge_y + pth + badge_pad_y
+        bx1 = max(x1 + 2, bx1)
+        bx2 = min(x2 - 2, bx2)
+        by2 = min(y2 - 2, by2)
 
-        # Clip to icon bounds
-        badge_x1 = max(x1 + 2, badge_x1)
-        badge_x2 = min(x2 - 2, badge_x2)
-        badge_y2 = min(y2 - 2, badge_y2)
-
-        if badge_x2 > badge_x1 and badge_y2 > badge_y1:
-            # Badge background - dark teal-tinted
-            badge_bg = (11, 62, 62, 230)
-            rounded_rect(draw, (badge_x1, badge_y1, badge_x2, badge_y2), badge_r, fill=badge_bg)
-
-            # Badge border - thin teal
+        if bx2 > bx1 and by2 > by1:
+            # Dark badge background
+            badge_bg = (20, 20, 22, 230)
+            rounded_rect(draw, (bx1, by1, bx2, by2), badge_r, fill=badge_bg)
             if size >= 32:
-                draw.rounded_rectangle(
-                    (badge_x1, badge_y1, badge_x2, badge_y2),
-                    radius=badge_r, outline=YT_TEAL + (160,), width=max(1, size // 64)
-                )
-
-            # Badge text - white
+                draw.rounded_rectangle((bx1, by1, bx2, by2), radius=badge_r,
+                                       outline=WHITE + (60,), width=max(1, size // 64))
             pdf_tx = cx - ptw // 2
             pdf_ty = badge_y
             draw.text((pdf_tx, pdf_ty), pdf_text, fill=WHITE + (255,), font=pdf_font)
@@ -179,31 +162,25 @@ def make_base_icon(size, with_pdf=True):
 
 def make_dialog_icon(size, variant):
     """
-    Create a dialog icon with YT branding and status indicator.
+    Create dialog icon with YT badge + status indicator.
     variant: 'check' for success, 'warn' for warning
     """
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
 
-    # Small rounded square background
     pad = max(1, size // 10)
     r = max(2, size // 5)
     x1, y1 = pad, pad
     x2, y2 = size - pad - 1, size - pad - 1
 
-    # Background
-    rounded_rect(draw, (x1, y1, x2, y2), r, fill=DARK + (255,))
+    # Apple blue rounded square
+    rounded_rect(draw, (x1, y1, x2, y2), r, fill=APPLE_BLUE + (255,))
+    draw.rounded_rectangle((x1, y1, x2, y2), radius=r,
+                           outline=(255, 255, 255, 40), width=1)
 
-    # Subtle border
-    border_color = (60, 60, 60, 200)
-    draw.rounded_rectangle((x1, y1, x2, y2), radius=r, outline=border_color, width=1)
-
-    # ── Draw miniature "YT" text ──────────────────────────────────────────
+    # Mini "YT" text
     yt_font_size = int(size * 0.38)
-    font = find_font(yt_font_size, bold=True)
-    if font is None:
-        font = ImageFont.load_default()
-
+    font = find_font(yt_font_size, bold=True) or ImageFont.load_default()
     try:
         bbox = draw.textbbox((0, 0), "YT", font=font)
         tw = bbox[2] - bbox[0]
@@ -215,10 +192,9 @@ def make_dialog_icon(size, variant):
     cy = size // 2
     tx = cx - tw // 2
     ty = cy - th // 2 - int(size * 0.02)
+    draw.text((tx, ty), "YT", fill=WHITE + (255,), font=font)
 
-    draw.text((tx, ty), "YT", fill=YT_TEAL + (255,), font=font)
-
-    # ── Status indicator ────────────────────────────────────────────────────
+    # Status indicator
     ind_size = int(size * 0.38)
     ind_x = size - ind_size - int(size * 0.04)
     ind_y = size - ind_size - int(size * 0.04)
@@ -227,12 +203,10 @@ def make_dialog_icon(size, variant):
         # Green checkmark circle
         draw.ellipse(
             (ind_x, ind_y, ind_x + ind_size, ind_y + ind_size),
-            fill=(46, 204, 113, 255),
+            fill=SUCCESS_GREEN + (255,),
             outline=WHITE + (200,),
             width=max(1, int(size * 0.04))
         )
-
-        # Checkmark
         cm = ind_size * 0.5
         cx_c = ind_x + ind_size // 2
         cy_c = ind_y + ind_size // 2
@@ -249,25 +223,14 @@ def make_dialog_icon(size, variant):
         by = ind_y + ind_size
         ty_tri = ind_y + int(ind_size * 0.1)
         hw = ind_size * 0.5
-
-        triangle = [
-            (cx_tri, ty_tri),
-            (cx_tri - hw, by),
-            (cx_tri + hw, by),
-        ]
-        draw.polygon(triangle, fill=(243, 156, 18, 255))
-
-        # Exclamation mark
+        triangle = [(cx_tri, ty_tri), (cx_tri - hw, by), (cx_tri + hw, by)]
+        draw.polygon(triangle, fill=WARNING_AMBER + (255,))
         ex_w = max(1, int(ind_size * 0.12))
         ex_h = int(ind_size * 0.3)
         ex_x = cx_tri - ex_w // 2
         ex_top = ty_tri + int(ind_size * 0.18)
         ex_bottom = ex_top + ex_h
-
-        draw.rectangle(
-            (ex_x, ex_top, ex_x + ex_w, ex_bottom),
-            fill=DARK + (255,)
-        )
+        draw.rectangle((ex_x, ex_top, ex_x + ex_w, ex_bottom), fill=DARK + (255,))
         dot_r = max(1, int(ind_size * 0.06))
         dot_y = ex_bottom + int(ind_size * 0.05)
         draw.ellipse(
@@ -283,22 +246,19 @@ def make_ico(ico_sizes=None):
     if ico_sizes is None:
         ico_sizes = ICO_SIZES
 
-    # Generate PNG data for each size
     png_data_list = []
     for s in ico_sizes:
-        img = make_base_icon(s, with_pdf=(s >= 24))
+        img = make_base_icon(s, with_badge=(s >= 24))
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         png_data_list.append(buf.getvalue())
 
-    # Build ICO file manually
     count = len(png_data_list)
     header = bytearray()
-    header += (0).to_bytes(2, 'little')  # reserved
-    header += (1).to_bytes(2, 'little')  # type: 1=ICO
-    header += count.to_bytes(2, 'little')  # count
+    header += (0).to_bytes(2, 'little')
+    header += (1).to_bytes(2, 'little')  # type: ICO
+    header += count.to_bytes(2, 'little')
 
-    # Directory entries + image data
     data_offset = 6 + count * 16
     all_data = bytearray()
 
@@ -308,16 +268,15 @@ def make_ico(ico_sizes=None):
         entry = bytearray()
         entry += w.to_bytes(1, 'little')
         entry += h.to_bytes(1, 'little')
-        entry += (0).to_bytes(1, 'little')  # colors
-        entry += (0).to_bytes(1, 'little')  # reserved
+        entry += (0).to_bytes(1, 'little')
+        entry += (0).to_bytes(1, 'little')
         entry += (1).to_bytes(2, 'little')  # planes
         entry += (32).to_bytes(2, 'little')  # bpp
-        entry += len(png_bytes).to_bytes(4, 'little')  # size
-        entry += data_offset.to_bytes(4, 'little')  # offset
+        entry += len(png_bytes).to_bytes(4, 'little')
+        entry += data_offset.to_bytes(4, 'little')
         all_data += entry
         data_offset += len(png_bytes)
 
-    # Append image data
     for png_bytes in png_data_list:
         all_data += png_bytes
 
@@ -328,7 +287,13 @@ def generate_all():
     """Generate all icon files."""
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    # ── 1. Multi-resolution ICO ─────────────────────────────────────────────
+    # ── 1. Large PNG ─────────────────────────────────────────────────────────
+    png_img = make_base_icon(256, with_badge=True)
+    png_path = os.path.join(OUT_DIR, "icon.png")
+    png_img.save(png_path, format="PNG")
+    print(f"✓ Generated {png_path} (256x256)")
+
+    # ── 2. Multi-resolution ICO ──────────────────────────────────────────────
     ico_bytes = make_ico()
     ico_path = os.path.join(OUT_DIR, "icon.ico")
     with open(ico_path, "wb") as f:
@@ -337,19 +302,13 @@ def generate_all():
     print(f"   Sizes: {ICO_SIZES}")
     print(f"   ICO size: {len(ico_bytes):,} bytes")
 
-    # ── 2. About dialog PNG (64x64) ──────────────────────────────────────────
-    about_img = make_base_icon(ABOUT_SIZE, with_pdf=True)
-    about_path = os.path.join(OUT_DIR, "icon_about.png")
-    about_img.save(about_path, format="PNG")
-    print(f"✓ Generated {about_path} ({ABOUT_SIZE}x{ABOUT_SIZE})")
-
-    # ── 3. Dialog checkmark icon (32x32) ─────────────────────────────────────
+    # ── 3. Dialog checkmark icon ─────────────────────────────────────────────
     check_img = make_dialog_icon(DIALOG_SIZE, "check")
     check_path = os.path.join(OUT_DIR, "icon_dialog_check.png")
     check_img.save(check_path, format="PNG")
     print(f"✓ Generated {check_path} ({DIALOG_SIZE}x{DIALOG_SIZE})")
 
-    # ── 4. Dialog warning icon (32x32) ───────────────────────────────────────
+    # ── 4. Dialog warning icon ───────────────────────────────────────────────
     warn_img = make_dialog_icon(DIALOG_SIZE, "warn")
     warn_path = os.path.join(OUT_DIR, "icon_dialog_warn.png")
     warn_img.save(warn_path, format="PNG")
@@ -357,42 +316,24 @@ def generate_all():
 
     # ── Validation ──────────────────────────────────────────────────────────
     print("\n── Validation ──")
-
-    # Verify ICO structure
     import struct
     with open(ico_path, 'rb') as f:
         ico_data = f.read()
     _, _, count = struct.unpack_from('<HHH', ico_data, 0)
     print(f"icon.ico: {count} entries")
-
     from io import BytesIO
     for i in range(count):
         entry_off = 6 + i * 16
-        w, h, _, _, _, _, sz, off = struct.unpack_from('<BBBBHHII', ico_data, entry_off)
-        w_act = w if w != 0 else 256
-        h_act = h if h != 0 else 256
-        png_bytes = ico_data[off:off+sz]
-        png_img = Image.open(BytesIO(png_bytes))
-        # Count teal pixels to verify text rendering
-        px = png_img.load()
-        teal_count = sum(1 for y in range(h_act) for x in range(w_act)
-                        if px[x, y][3] > 128 and px[x, y][2] > 100 and px[x, y][0] < 80 and px[x, y][1] > 100)
-        has_shadow = any(px[x, y][3] == 60 and px[x, y][:3] == (0, 0, 0)
-                         for y in range(h_act) for x in range(w_act))
-        print(f"  {w_act:3d}x{h_act:<3d} | teal pixels: {teal_count:4d} | shadow: {has_shadow}")
+        w, h, *_ = struct.unpack_from('<BBBBHHII', ico_data, entry_off)
+        w_act = w or 256
+        h_act = h or 256
+        print(f"  {w_act:3d}x{h_act:<3d}")
 
-    for name in ["icon_about.png", "icon_dialog_check.png", "icon_dialog_warn.png"]:
+    for name in ["icon.png", "icon_dialog_check.png", "icon_dialog_warn.png"]:
         p = os.path.join(OUT_DIR, name)
         if os.path.exists(p):
             im = Image.open(p)
-            # Count non-transparent and colored pixels
-            px = im.load()
-            w, h = im.size
-            total = w * h
-            opaque = sum(1 for y in range(h) for x in range(w) if px[x, y][3] > 128)
-            teal = sum(1 for y in range(h) for x in range(w)
-                      if px[x, y][3] > 128 and px[x, y][2] > 100 and px[x, y][0] < 80 and px[x, y][1] > 100)
-            print(f"  {name:25s} {w}x{h} mode={im.mode} | opaque: {opaque}/{total} | teal: {teal}")
+            print(f"  {name:25s} {im.size[0]}x{im.size[1]} mode={im.mode}")
 
     print("\n✅ All icons generated successfully!")
 

@@ -3,7 +3,9 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 dist/
+build/
 *.spec
+!yt-pdf-cleaner.spec
 
 # Virtual environments
 venv/
